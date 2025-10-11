@@ -1,4 +1,4 @@
-const axios = require('axios');
+const twilio = require('twilio');
 
 // In-memory OTP storage
 // NOTE: For production with multiple servers, use Redis instead
@@ -12,8 +12,8 @@ function generateOTP() {
 }
 
 /**
- * Send OTP via MSG91
- * @param {string} phone - Phone number (with country code, e.g., 919876543210)
+ * Send OTP via Twilio
+ * @param {string} phone - Phone number (with country code, e.g., +919876543210)
  * @returns {Promise<{success: boolean, message: string}>}
  */
 async function sendOTP(phone) {
@@ -38,51 +38,46 @@ async function sendOTP(phone) {
   }
 
   try {
-    const authKey = process.env.MSG91_AUTH_KEY;
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
-    if (!authKey) {
-      console.error('❌ MSG91_AUTH_KEY not configured');
+    if (!accountSid || !authToken || !fromNumber) {
+      console.error('❌ Twilio credentials not configured');
+      console.error('Missing:', {
+        accountSid: !accountSid,
+        authToken: !authToken,
+        fromNumber: !fromNumber
+      });
       return {
         success: false,
         message: 'SMS service not configured'
       };
     }
 
-    // MSG91 OTP Send API
-    const url = 'https://control.msg91.com/api/v5/otp';
+    // Initialize Twilio client
+    const client = twilio(accountSid, authToken);
 
-    const payload = {
-      template_id: process.env.MSG91_TEMPLATE_ID || '123456789012345678901234', // You'll need to create template
-      mobile: phone,
-      authkey: authKey,
-      otp: otp,
-      otp_expiry: 10 // 10 minutes
-    };
+    // Ensure phone number has + prefix
+    const formattedPhone = phone.startsWith('+') ? phone : `+${phone}`;
 
-    console.log(`📤 Sending OTP to ${phone} via MSG91...`);
+    console.log(`📤 Sending OTP to ${formattedPhone} via Twilio...`);
 
-    const response = await axios.post(url, payload, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
+    // Send SMS
+    const message = await client.messages.create({
+      body: `Your Myteer verification code is: ${otp}. Valid for 10 minutes. Do not share this code with anyone.`,
+      from: fromNumber,
+      to: formattedPhone
     });
 
-    console.log('✅ MSG91 Response:', response.data);
+    console.log('✅ Twilio Message sent:', message.sid);
 
-    if (response.data.type === 'success' || response.status === 200) {
-      return {
-        success: true,
-        message: 'OTP sent successfully'
-      };
-    } else {
-      console.error('❌ MSG91 Error:', response.data);
-      return {
-        success: false,
-        message: 'Failed to send OTP'
-      };
-    }
+    return {
+      success: true,
+      message: 'OTP sent successfully'
+    };
   } catch (error) {
-    console.error('❌ OTP Send Error:', error.response?.data || error.message);
+    console.error('❌ Twilio Error:', error);
 
     // In case of error, still return success in dev mode for testing
     if (process.env.NODE_ENV === 'development') {
@@ -92,9 +87,19 @@ async function sendOTP(phone) {
       };
     }
 
+    // Better error messages
+    let errorMessage = 'Failed to send OTP';
+    if (error.code === 21211) {
+      errorMessage = 'Invalid phone number';
+    } else if (error.code === 21608) {
+      errorMessage = 'Phone number cannot receive SMS';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
     return {
       success: false,
-      message: 'Failed to send OTP'
+      message: errorMessage
     };
   }
 }
