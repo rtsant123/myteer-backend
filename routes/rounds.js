@@ -330,4 +330,25 @@ function calculateWinAmount(entry, house, mode) {
   return entry.amount * rate;
 }
 
+// @route   POST /api/rounds/auto-create
+// @desc    Manually trigger auto-creation of tomorrow's rounds
+// @access  Private/Admin
+router.post('/auto-create', protect, adminOnly, async (req, res) => {
+  try {
+    const { createTomorrowsRounds } = require('../utils/roundScheduler');
+
+    await createTomorrowsRounds();
+
+    res.json({
+      success: true,
+      message: 'Tomorrow\'s rounds created successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

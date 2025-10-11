@@ -16,7 +16,13 @@ mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('✅ MongoDB Connected'))
+.then(() => {
+  console.log('✅ MongoDB Connected');
+
+  // Initialize auto-round creation scheduler
+  const { scheduleAutoRoundCreation } = require('./utils/roundScheduler');
+  scheduleAutoRoundCreation();
+})
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
 // Routes
