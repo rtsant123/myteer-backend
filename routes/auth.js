@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const { verifyOTP } = require('../utils/otpService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_change_this';
 
@@ -16,7 +17,45 @@ const generateToken = (id) => {
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    const { phone, password, name } = req.body;
+    let { phone, password, name, otp } = req.body;
+
+    // Validate inputs
+    if (!phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone and password are required'
+      });
+    }
+
+    // Normalize phone number
+    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
+    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
+      if (phone.length === 10) {
+        phone = '91' + phone;
+      }
+    }
+    phone = phone.replace('+', '');
+
+    // Verify OTP (unless in development mode without OTP)
+    if (otp) {
+      const otpResult = verifyOTP(phone, otp);
+      if (!otpResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: otpResult.message
+        });
+      }
+      console.log(`✅ OTP verified for registration: ${phone}`);
+    } else {
+      // If no OTP provided, check if we're in development mode
+      if (process.env.NODE_ENV !== 'development') {
+        return res.status(400).json({
+          success: false,
+          message: 'OTP verification is required'
+        });
+      }
+      console.log(`⚠️ DEV MODE: Registration without OTP for ${phone}`);
+    }
 
     // Check if user exists
     const userExists = await User.findOne({ phone });
