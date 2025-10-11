@@ -32,7 +32,7 @@ router.post('/register', async (req, res) => {
       phone,
       password,
       name: name || '',
-      balance: 1000 // Initial demo balance
+      balance: 0 // No initial bonus - admin controls bonuses
     });
 
     const token = generateToken(user._id);

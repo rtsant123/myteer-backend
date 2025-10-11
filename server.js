@@ -34,6 +34,7 @@ app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/payment-methods', require('./routes/paymentMethods'));
 app.use('/api/deposits', require('./routes/deposits'));
 app.use('/api/withdrawals', require('./routes/withdrawals'));
+app.use('/api/banners', require('./routes/banners'));
 
 // Health Check
 app.get('/api/health', (req, res) => {

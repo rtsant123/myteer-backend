@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { protect } = require('../middleware/auth');
+const { protect, adminOnly } = require('../middleware/auth');
 
 // @route   GET /api/wallet/balance
 // @desc    Get user balance
@@ -89,6 +89,63 @@ router.get('/transactions', protect, async (req, res) => {
       pages: Math.ceil(total / limit),
       transactions,
       summary
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/wallet/bonus
+// @desc    Admin gives bonus to user
+// @access  Private/Admin
+router.post('/bonus', protect, adminOnly, async (req, res) => {
+  try {
+    const { userId, amount, description } = req.body;
+
+    if (!userId || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID and amount are required'
+      });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be positive'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const balanceBefore = user.balance;
+    user.balance += amount;
+    await user.save();
+
+    // Create transaction
+    const transaction = await Transaction.create({
+      user: userId,
+      type: 'deposit',
+      amount,
+      balanceBefore,
+      balanceAfter: user.balance,
+      description: description || `Bonus from admin`,
+      status: 'completed'
+    });
+
+    res.json({
+      success: true,
+      message: 'Bonus added successfully',
+      transaction
     });
   } catch (error) {
     res.status(500).json({
