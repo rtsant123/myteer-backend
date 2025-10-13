@@ -318,4 +318,43 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/make-admin/:phone
+// @desc    Make a user admin (for setup/testing)
+// @access  Public (should be protected in production)
+router.post('/make-admin/:phone', async (req, res) => {
+  try {
+    let { phone } = req.params;
+
+    // Normalize phone number
+    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
+    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
+      if (phone.length === 10) {
+        phone = '91' + phone;
+      }
+    }
+    phone = phone.replace('+', '');
+
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    user.isAdmin = true;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User ${phone} is now an admin`
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
