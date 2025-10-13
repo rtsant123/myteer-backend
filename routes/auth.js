@@ -162,10 +162,50 @@ router.get('/me', protect, async (req, res) => {
       id: req.user._id,
       phone: req.user.phone,
       name: req.user.name,
+      email: req.user.email,
       balance: req.user.balance,
-      isAdmin: req.user.isAdmin
+      isAdmin: req.user.isAdmin,
+      isActive: req.user.isActive
     }
   });
+});
+
+// @route   PUT /api/auth/profile
+// @desc    Update user profile (name, email)
+// @access  Private
+router.put('/profile', protect, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = req.user;
+
+    // Update allowed fields only
+    if (name !== undefined) {
+      user.name = name;
+    }
+    if (email !== undefined) {
+      user.email = email;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        phone: user.phone,
+        name: user.name,
+        email: user.email,
+        balance: user.balance,
+        isAdmin: user.isAdmin
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
 // @route   DELETE /api/auth/user/:phone
@@ -309,6 +349,72 @@ router.post('/reset-password', async (req, res) => {
     res.json({
       success: true,
       message: 'Password reset successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/auth/create-first-admin
+// @desc    Create first admin user without OTP (for initial setup)
+// @access  Public (should be removed after first admin is created)
+router.post('/create-first-admin', async (req, res) => {
+  try {
+    let { phone, password, name } = req.body;
+
+    // Validate inputs
+    if (!phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone and password are required'
+      });
+    }
+
+    // Normalize phone number
+    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
+    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
+      if (phone.length === 10) {
+        phone = '91' + phone;
+      }
+    }
+    phone = phone.replace('+', '');
+
+    // Check if user already exists
+    const userExists = await User.findOne({ phone });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists'
+      });
+    }
+
+    // Create admin user without OTP verification
+    const user = await User.create({
+      phone,
+      password,
+      name: name || 'Admin',
+      balance: 0,
+      isAdmin: true  // Make admin immediately
+    });
+
+    const token = generateToken(user._id);
+
+    console.log(`🔧 ADMIN CREATED: ${phone}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin user created successfully',
+      token,
+      user: {
+        id: user._id,
+        phone: user.phone,
+        name: user.name,
+        balance: user.balance,
+        isAdmin: user.isAdmin
+      }
     });
   } catch (error) {
     res.status(500).json({
