@@ -100,7 +100,18 @@ router.post('/register', async (req, res) => {
 // @access  Public
 router.post('/login', async (req, res) => {
   try {
-    const { phone, password } = req.body;
+    let { phone, password } = req.body;
+
+    // Normalize phone number (same as registration)
+    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
+    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
+      if (phone.length === 10) {
+        phone = '91' + phone;
+      }
+    }
+    phone = phone.replace('+', '');
+
+    console.log(`🔐 Login attempt for phone: ${phone}`);
 
     // Check for user
     const user = await User.findOne({ phone });
