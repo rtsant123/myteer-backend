@@ -19,9 +19,9 @@ mongoose.connect(MONGO_URI, {
 .then(() => {
   console.log('✅ MongoDB Connected');
 
-  // Initialize auto-round creation scheduler
-  const { scheduleAutoRoundCreation } = require('./utils/roundScheduler');
-  scheduleAutoRoundCreation();
+  // Initialize round scheduler (auto-lifecycle + auto-creation)
+  const { initScheduler } = require('./services/roundScheduler');
+  initScheduler();
 })
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 

@@ -34,6 +34,22 @@ const houseSchema = new mongoose.Schema({
     type: Number,
     default: 400
   },
+  // Deadline times for betting (in IST)
+  frDeadlineTime: {
+    type: String,
+    default: '13:00', // 1:00 PM IST
+    required: true
+  },
+  srDeadlineTime: {
+    type: String,
+    default: '17:00', // 5:00 PM IST
+    required: true
+  },
+  // Auto-create rounds
+  autoCreateRounds: {
+    type: Boolean,
+    default: true
+  },
   isActive: {
     type: Boolean,
     default: true

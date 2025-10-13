@@ -14,7 +14,7 @@ router.get('/active/:houseId', async (req, res) => {
   try {
     const round = await Round.findOne({
       house: req.params.houseId,
-      status: { $in: ['open', 'fr_closed'] }
+      status: { $in: ['live', 'fr_closed', 'sr_closed'] }
     }).populate('house');
 
     if (!round) {
@@ -70,10 +70,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
     const {
       house,
       date,
-      frOpenTime,
-      frCloseTime,
-      srOpenTime,
-      srCloseTime
+      frDeadline,
+      srDeadline
     } = req.body;
 
     if (!house || !date) {
@@ -92,6 +90,25 @@ router.post('/', protect, adminOnly, async (req, res) => {
       });
     }
 
+    // Calculate deadlines from house default times if not provided
+    let frDeadlineDate, srDeadlineDate;
+
+    if (frDeadline && srDeadline) {
+      frDeadlineDate = new Date(frDeadline);
+      srDeadlineDate = new Date(srDeadline);
+    } else {
+      // Use house default times
+      const roundDate = new Date(date);
+      const [frHour, frMin] = houseExists.frDeadlineTime.split(':').map(Number);
+      const [srHour, srMin] = houseExists.srDeadlineTime.split(':').map(Number);
+
+      frDeadlineDate = new Date(roundDate);
+      frDeadlineDate.setHours(frHour, frMin, 0, 0);
+
+      srDeadlineDate = new Date(roundDate);
+      srDeadlineDate.setHours(srHour, srMin, 0, 0);
+    }
+
     // Check if round already exists for this house and date
     const existingRound = await Round.findOne({
       house,
@@ -105,14 +122,19 @@ router.post('/', protect, adminOnly, async (req, res) => {
       });
     }
 
+    // Determine initial status
+    const now = new Date();
+    let status = 'pending';
+    if (now >= frDeadlineDate) {
+      status = 'live';
+    }
+
     const round = await Round.create({
       house,
       date,
-      frOpenTime,
-      frCloseTime,
-      srOpenTime,
-      srCloseTime,
-      status: 'open'
+      frDeadline: frDeadlineDate,
+      srDeadline: srDeadlineDate,
+      status
     });
 
     const populatedRound = await Round.findById(round._id).populate('house');
@@ -155,11 +177,7 @@ router.put('/:id/result', protect, adminOnly, async (req, res) => {
         });
       }
       round.frResult = frResult;
-
-      // Update status if FR result is set
-      if (round.status === 'open') {
-        round.status = 'fr_closed';
-      }
+      round.frResultTime = new Date();
     }
 
     if (srResult !== undefined) {
@@ -170,11 +188,12 @@ router.put('/:id/result', protect, adminOnly, async (req, res) => {
         });
       }
       round.srResult = srResult;
+      round.srResultTime = new Date();
+    }
 
-      // Update status if both results are set
-      if (round.frResult !== undefined && round.srResult !== undefined) {
-        round.status = 'completed';
-      }
+    // Update status to finished if both results are set
+    if (round.frResult !== undefined && round.srResult !== undefined) {
+      round.status = 'finished';
     }
 
     await round.save();
@@ -335,9 +354,9 @@ function calculateWinAmount(entry, house, mode) {
 // @access  Private/Admin
 router.post('/auto-create', protect, adminOnly, async (req, res) => {
   try {
-    const { createTomorrowsRounds } = require('../utils/roundScheduler');
+    const { autoCreateRounds } = require('../services/roundScheduler');
 
-    await createTomorrowsRounds();
+    await autoCreateRounds();
 
     res.json({
       success: true,

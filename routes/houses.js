@@ -63,7 +63,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
       srDirectRate,
       srHouseRate,
       srEndingRate,
-      forecastRate
+      forecastRate,
+      frDeadlineTime,
+      srDeadlineTime,
+      autoCreateRounds
     } = req.body;
 
     if (!name) {
@@ -82,7 +85,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
       srDirectRate,
       srHouseRate,
       srEndingRate,
-      forecastRate
+      forecastRate,
+      frDeadlineTime: frDeadlineTime || '13:00',
+      srDeadlineTime: srDeadlineTime || '17:00',
+      autoCreateRounds: autoCreateRounds !== undefined ? autoCreateRounds : true
     });
 
     res.status(201).json({
@@ -122,6 +128,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       srHouseRate,
       srEndingRate,
       forecastRate,
+      frDeadlineTime,
+      srDeadlineTime,
+      autoCreateRounds,
       isActive
     } = req.body;
 
@@ -135,6 +144,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     if (srHouseRate !== undefined) house.srHouseRate = srHouseRate;
     if (srEndingRate !== undefined) house.srEndingRate = srEndingRate;
     if (forecastRate !== undefined) house.forecastRate = forecastRate;
+    if (frDeadlineTime !== undefined) house.frDeadlineTime = frDeadlineTime;
+    if (srDeadlineTime !== undefined) house.srDeadlineTime = srDeadlineTime;
+    if (autoCreateRounds !== undefined) house.autoCreateRounds = autoCreateRounds;
     if (isActive !== undefined) house.isActive = isActive;
 
     await house.save();
