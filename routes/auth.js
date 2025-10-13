@@ -157,4 +157,154 @@ router.get('/me', protect, async (req, res) => {
   });
 });
 
+// @route   DELETE /api/auth/user/:phone
+// @desc    Delete user by phone (for cleaning test users)
+// @access  Public (in development) / Admin (in production)
+router.delete('/user/:phone', async (req, res) => {
+  try {
+    let { phone } = req.params;
+
+    // Normalize phone number
+    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
+    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
+      if (phone.length === 10) {
+        phone = '91' + phone;
+      }
+    }
+    phone = phone.replace('+', '');
+
+    // Find and delete user
+    const user = await User.findOneAndDelete({ phone });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `User ${phone} deleted successfully`
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send OTP for password reset
+// @access  Public
+router.post('/forgot-password', async (req, res) => {
+  try {
+    let { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      });
+    }
+
+    // Normalize phone number
+    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
+    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
+      if (phone.length === 10) {
+        phone = '91' + phone;
+      }
+    }
+    phone = phone.replace('+', '');
+
+    // Check if user exists
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found with this phone number'
+      });
+    }
+
+    // Send OTP using the OTP service
+    const { sendOTP } = require('../utils/otpService');
+    const result = await sendOTP(phone);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'OTP sent for password reset'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: result.message
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with OTP
+// @access  Public
+router.post('/reset-password', async (req, res) => {
+  try {
+    let { phone, otp, newPassword } = req.body;
+
+    if (!phone || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone, OTP, and new password are required'
+      });
+    }
+
+    // Normalize phone number
+    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
+    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
+      if (phone.length === 10) {
+        phone = '91' + phone;
+      }
+    }
+    phone = phone.replace('+', '');
+
+    // Verify OTP
+    const otpResult = verifyOTP(phone, otp);
+    if (!otpResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: otpResult.message
+      });
+    }
+
+    // Find user
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
