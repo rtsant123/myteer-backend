@@ -4,11 +4,15 @@ const House = require('../models/House');
 const { protect, adminOnly } = require('../middleware/auth');
 
 // @route   GET /api/houses
-// @desc    Get all active houses
+// @desc    Get all houses (or active only)
 // @access  Public
+// @query   all=true - Get all houses including inactive (for admin)
 router.get('/', async (req, res) => {
   try {
-    const houses = await House.find({ isActive: true }).sort({ name: 1 });
+    // If all=true query parameter is present, get all houses
+    // Otherwise, only get active houses
+    const filter = req.query.all === 'true' ? {} : { isActive: true };
+    const houses = await House.find(filter).sort({ name: 1 });
 
     res.json({
       success: true,
