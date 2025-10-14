@@ -183,8 +183,42 @@ router.post('/place', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/bets/user
+// @desc    Get current user's bets
+// @access  Private
+router.get('/user', protect, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const bets = await Bet.find({ user: req.user._id })
+      .populate('house')
+      .populate('round')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
+
+    const total = await Bet.countDocuments({ user: req.user._id });
+
+    res.json({
+      success: true,
+      count: bets.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      bets
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   GET /api/bets/user/:userId
-// @desc    Get user bets
+// @desc    Get user bets by userId (admin or own bets)
 // @access  Private
 router.get('/user/:userId', protect, async (req, res) => {
   try {
