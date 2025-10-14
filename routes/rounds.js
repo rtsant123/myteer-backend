@@ -14,8 +14,10 @@ router.get('/active/:houseId', async (req, res) => {
   try {
     const round = await Round.findOne({
       house: req.params.houseId,
-      status: { $in: ['live', 'fr_closed', 'sr_closed'] }
-    }).populate('house');
+      status: { $in: ['pending', 'live', 'fr_closed', 'sr_closed'] }
+    })
+    .sort({ date: -1 }) // Get most recent round
+    .populate('house');
 
     if (!round) {
       return res.status(404).json({
@@ -110,9 +112,17 @@ router.post('/', protect, adminOnly, async (req, res) => {
     }
 
     // Check if round already exists for this house and date
+    // Compare only date part (year, month, day) without time
+    const checkDate = new Date(date);
+    const startOfDay = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate());
+    const endOfDay = new Date(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate(), 23, 59, 59, 999);
+
     const existingRound = await Round.findOne({
       house,
-      date: new Date(date)
+      date: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
     });
 
     if (existingRound) {
