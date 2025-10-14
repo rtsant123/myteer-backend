@@ -99,16 +99,24 @@ router.post('/', protect, adminOnly, async (req, res) => {
       frDeadlineDate = new Date(frDeadline);
       srDeadlineDate = new Date(srDeadline);
     } else {
-      // Use house default times
+      // Use house default times (in IST - UTC+5:30)
       const roundDate = new Date(date);
       const [frHour, frMin] = houseExists.frDeadlineTime.split(':').map(Number);
       const [srHour, srMin] = houseExists.srDeadlineTime.split(':').map(Number);
 
-      frDeadlineDate = new Date(roundDate);
-      frDeadlineDate.setHours(frHour, frMin, 0, 0);
+      // Create date in IST (UTC+5:30)
+      // Get the date in IST format
+      const year = roundDate.getFullYear();
+      const month = roundDate.getMonth();
+      const day = roundDate.getDate();
 
-      srDeadlineDate = new Date(roundDate);
-      srDeadlineDate.setHours(srHour, srMin, 0, 0);
+      // Create UTC time by subtracting IST offset (5 hours 30 minutes)
+      frDeadlineDate = new Date(Date.UTC(year, month, day, frHour, frMin, 0, 0));
+      // Subtract 5:30 hours to convert from IST to UTC
+      frDeadlineDate.setMinutes(frDeadlineDate.getMinutes() - 330); // 330 = 5*60 + 30
+
+      srDeadlineDate = new Date(Date.UTC(year, month, day, srHour, srMin, 0, 0));
+      srDeadlineDate.setMinutes(srDeadlineDate.getMinutes() - 330);
     }
 
     // Check if round already exists for this house and date
