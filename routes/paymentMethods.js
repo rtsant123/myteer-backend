@@ -3,6 +3,69 @@ const router = express.Router();
 const PaymentMethod = require('../models/PaymentMethod');
 const { protect, adminOnly } = require('../middleware/auth');
 
+// @route   POST /api/payment-methods/seed
+// @desc    Seed initial payment methods (for first-time setup)
+// @access  Public (should be protected in production)
+router.post('/seed', async (req, res) => {
+  try {
+    // Check if payment methods already exist
+    const existingCount = await PaymentMethod.countDocuments();
+
+    if (existingCount > 0) {
+      return res.json({
+        success: true,
+        message: `${existingCount} payment methods already exist`,
+        count: existingCount
+      });
+    }
+
+    // Create initial payment methods
+    const paymentMethods = [
+      {
+        name: 'PhonePe / Google Pay',
+        type: 'UPI',
+        details: {
+          upiId: 'admin@paytm'
+        },
+        isActive: true
+      },
+      {
+        name: 'QR Code Payment',
+        type: 'QR',
+        details: {
+          qrCodeUrl: 'https://via.placeholder.com/300x300?text=QR+Code'
+        },
+        isActive: true
+      },
+      {
+        name: 'Bank Transfer',
+        type: 'BANK',
+        details: {
+          accountHolder: 'Teer Betting Admin',
+          accountNumber: '1234567890',
+          ifscCode: 'SBIN0001234',
+          bankName: 'State Bank of India'
+        },
+        isActive: true
+      }
+    ];
+
+    const inserted = await PaymentMethod.insertMany(paymentMethods);
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully created ${inserted.length} payment methods`,
+      count: inserted.length,
+      paymentMethods: inserted
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   GET /api/payment-methods
 // @desc    Get all active payment methods
 // @access  Public
