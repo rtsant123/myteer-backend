@@ -45,6 +45,11 @@ const houseSchema = new mongoose.Schema({
     default: '17:00', // 5:00 PM IST
     required: true
   },
+  forecastDeadlineTime: {
+    type: String,
+    default: '13:00', // Same as FR by default
+    required: true
+  },
   // Auto-create rounds
   autoCreateRounds: {
     type: Boolean,

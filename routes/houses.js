@@ -66,6 +66,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
       forecastRate,
       frDeadlineTime,
       srDeadlineTime,
+      forecastDeadlineTime,
       autoCreateRounds
     } = req.body;
 
@@ -88,6 +89,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
       forecastRate,
       frDeadlineTime: frDeadlineTime || '13:00',
       srDeadlineTime: srDeadlineTime || '17:00',
+      forecastDeadlineTime: forecastDeadlineTime || frDeadlineTime || '13:00',
       autoCreateRounds: autoCreateRounds !== undefined ? autoCreateRounds : true
     });
 
@@ -130,6 +132,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       forecastRate,
       frDeadlineTime,
       srDeadlineTime,
+      forecastDeadlineTime,
       autoCreateRounds,
       isActive
     } = req.body;
@@ -146,6 +149,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     if (forecastRate !== undefined) house.forecastRate = forecastRate;
     if (frDeadlineTime !== undefined) house.frDeadlineTime = frDeadlineTime;
     if (srDeadlineTime !== undefined) house.srDeadlineTime = srDeadlineTime;
+    if (forecastDeadlineTime !== undefined) house.forecastDeadlineTime = forecastDeadlineTime;
     if (autoCreateRounds !== undefined) house.autoCreateRounds = autoCreateRounds;
     if (isActive !== undefined) house.isActive = isActive;
 
