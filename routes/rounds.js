@@ -235,17 +235,22 @@ router.put('/:id/result', protect, adminOnly, async (req, res) => {
 // Helper function to calculate winners
 async function calculateWinners(round) {
   try {
-    // Get all bets for this round
-    const bets = await Bet.find({ round: round._id }).populate('house');
+    // Get all PENDING bets for this round (avoid double payment)
+    const bets = await Bet.find({
+      round: round._id,
+      status: 'pending'
+    }).populate('house');
 
     for (const bet of bets) {
       let totalWinAmount = 0;
       let hasWinner = false;
+      let canFinalizeBet = true; // Can we finalize this bet's status?
 
       // Process each entry in the bet
       for (const entry of bet.entries) {
         let isWinner = false;
         let winAmount = 0;
+        let entryProcessed = false;
 
         // Check FR bets
         if (entry.mode === 'FR' && round.frResult !== undefined) {
@@ -253,6 +258,10 @@ async function calculateWinners(round) {
           if (isWinner) {
             winAmount = calculateWinAmount(entry, bet.house, 'FR');
           }
+          entryProcessed = true;
+        } else if (entry.mode === 'FR' && round.frResult === undefined) {
+          // FR bet but no FR result yet - can't finalize this bet
+          canFinalizeBet = false;
         }
 
         // Check SR bets
@@ -261,35 +270,45 @@ async function calculateWinners(round) {
           if (isWinner) {
             winAmount = calculateWinAmount(entry, bet.house, 'SR');
           }
+          entryProcessed = true;
+        } else if (entry.mode === 'SR' && round.srResult === undefined) {
+          // SR bet but no SR result yet - can't finalize this bet
+          canFinalizeBet = false;
         }
 
         // Check FORECAST bets (both FR and SR must be set)
-        if (entry.mode === 'FORECAST' && round.frResult !== undefined && round.srResult !== undefined) {
-          const frResultStr = round.frResult.toString().padStart(2, '0');
-          const srResultStr = round.srResult.toString().padStart(2, '0');
+        if (entry.mode === 'FORECAST') {
+          if (round.frResult !== undefined && round.srResult !== undefined) {
+            const frResultStr = round.frResult.toString().padStart(2, '0');
+            const srResultStr = round.srResult.toString().padStart(2, '0');
 
-          if (entry.playType === 'DIRECT') {
-            // DIRECT: Match full numbers (FR=34, SR=53)
-            if (entry.frNumber === round.frResult && entry.srNumber === round.srResult) {
-              isWinner = true;
-              winAmount = entry.amount * bet.house.forecastDirectRate;
+            if (entry.playType === 'DIRECT') {
+              // DIRECT: Match full numbers (FR=34, SR=53)
+              if (entry.frNumber === round.frResult && entry.srNumber === round.srResult) {
+                isWinner = true;
+                winAmount = entry.amount * bet.house.forecastDirectRate;
+              }
+            } else if (entry.playType === 'HOUSE') {
+              // HOUSE: Match FIRST digits (FR=34→3, SR=53→5)
+              const frFirstDigit = parseInt(frResultStr[0]);
+              const srFirstDigit = parseInt(srResultStr[0]);
+              if (entry.frNumber === frFirstDigit && entry.srNumber === srFirstDigit) {
+                isWinner = true;
+                winAmount = entry.amount * bet.house.forecastHouseRate;
+              }
+            } else if (entry.playType === 'ENDING') {
+              // ENDING: Match LAST digits (FR=34→4, SR=53→3)
+              const frLastDigit = parseInt(frResultStr[1]);
+              const srLastDigit = parseInt(srResultStr[1]);
+              if (entry.frNumber === frLastDigit && entry.srNumber === srLastDigit) {
+                isWinner = true;
+                winAmount = entry.amount * bet.house.forecastEndingRate;
+              }
             }
-          } else if (entry.playType === 'HOUSE') {
-            // HOUSE: Match FIRST digits (FR=34→3, SR=53→5)
-            const frFirstDigit = parseInt(frResultStr[0]);
-            const srFirstDigit = parseInt(srResultStr[0]);
-            if (entry.frNumber === frFirstDigit && entry.srNumber === srFirstDigit) {
-              isWinner = true;
-              winAmount = entry.amount * bet.house.forecastHouseRate;
-            }
-          } else if (entry.playType === 'ENDING') {
-            // ENDING: Match LAST digits (FR=34→4, SR=53→3)
-            const frLastDigit = parseInt(frResultStr[1]);
-            const srLastDigit = parseInt(srResultStr[1]);
-            if (entry.frNumber === frLastDigit && entry.srNumber === srLastDigit) {
-              isWinner = true;
-              winAmount = entry.amount * bet.house.forecastEndingRate;
-            }
+            entryProcessed = true;
+          } else {
+            // FORECAST bet but don't have both results yet - can't finalize
+            canFinalizeBet = false;
           }
         }
 
@@ -302,31 +321,35 @@ async function calculateWinners(round) {
         }
       }
 
-      bet.totalWinAmount = totalWinAmount;
-      bet.status = hasWinner ? 'won' : 'lost';
-      await bet.save();
+      // Only update bet status if all entries can be processed
+      if (canFinalizeBet) {
+        bet.totalWinAmount = totalWinAmount;
+        bet.status = hasWinner ? 'won' : 'lost';
+        await bet.save();
 
-      // If user won, update balance and create transaction
-      if (hasWinner && totalWinAmount > 0) {
-        const user = await User.findById(bet.user);
-        if (user) {
-          const balanceBefore = user.balance;
-          user.balance += totalWinAmount;
-          await user.save();
+        // If user won, update balance and create transaction (ONLY when finalizing)
+        if (hasWinner && totalWinAmount > 0) {
+          const user = await User.findById(bet.user);
+          if (user) {
+            const balanceBefore = user.balance;
+            user.balance += totalWinAmount;
+            await user.save();
 
-          // Create win transaction
-          await Transaction.create({
-            user: user._id,
-            type: 'bet_won',
-            amount: totalWinAmount,
-            balanceBefore,
-            balanceAfter: user.balance,
-            description: `Won bet on ${bet.house.name}`,
-            relatedBet: bet._id,
-            status: 'completed'
-          });
+            // Create win transaction
+            await Transaction.create({
+              user: user._id,
+              type: 'bet_won',
+              amount: totalWinAmount,
+              balanceBefore,
+              balanceAfter: user.balance,
+              description: `Won bet on ${bet.house.name}`,
+              relatedBet: bet._id,
+              status: 'completed'
+            });
+          }
         }
       }
+      // Otherwise bet stays 'pending' for next result update
     }
   } catch (error) {
     console.error('Error calculating winners:', error);
