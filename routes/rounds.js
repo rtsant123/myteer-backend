@@ -263,12 +263,19 @@ async function calculateWinners(round) {
           }
         }
 
-        // Check FORECAST bets
+        // Check FORECAST bets (both FR and SR must be set)
         if (entry.mode === 'FORECAST' && round.frResult !== undefined && round.srResult !== undefined) {
-          // For forecast, check if the number matches SR result
-          if (entry.playType === 'DIRECT' && entry.number === round.srResult) {
+          // Forecast requires BOTH frNumber and srNumber to match
+          if (entry.frNumber === round.frResult && entry.srNumber === round.srResult) {
             isWinner = true;
-            winAmount = entry.amount * bet.house.forecastRate;
+            // Use appropriate rate based on play type
+            if (entry.playType === 'DIRECT') {
+              winAmount = entry.amount * bet.house.forecastDirectRate;
+            } else if (entry.playType === 'HOUSE') {
+              winAmount = entry.amount * bet.house.forecastHouseRate;
+            } else if (entry.playType === 'ENDING') {
+              winAmount = entry.amount * bet.house.forecastEndingRate;
+            }
           }
         }
 
@@ -322,11 +329,11 @@ function checkWinner(entry, result, house) {
       return entry.number === result;
 
     case 'HOUSE':
-      // House means matching last digit
-      return resultStr[1] === numberStr[1];
+      // House means matching FIRST digit
+      return resultStr[0] === numberStr[0];
 
     case 'ENDING':
-      // Ending means matching last digit (same as house)
+      // Ending means matching LAST digit
       return resultStr[1] === numberStr[1];
 
     default:
