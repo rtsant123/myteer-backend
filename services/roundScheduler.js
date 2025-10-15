@@ -77,7 +77,69 @@ async function updateRoundStatuses() {
   }
 }
 
-// Auto-create rounds for tomorrow
+// Auto-create round for a specific house (called when results are updated)
+async function autoCreateRoundForHouse(houseId) {
+  try {
+    const tomorrow = getTomorrowDate();
+    const tomorrowDayOfWeek = tomorrow.getDay();
+
+    // Get the house
+    const house = await House.findById(houseId);
+    if (!house) {
+      console.log(`❌ House ${houseId} not found`);
+      return;
+    }
+
+    // Check if house is active and has auto-create enabled
+    if (!house.isActive || !house.autoCreateRounds) {
+      console.log(`⏭️  Skipping ${house.name} - auto-create disabled or house inactive`);
+      return;
+    }
+
+    // Check if house operates on tomorrow's day
+    if (!house.operatingDays || !house.operatingDays.includes(tomorrowDayOfWeek)) {
+      console.log(`⏭️  Skipping ${house.name} - doesn't operate on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][tomorrowDayOfWeek]}`);
+      return;
+    }
+
+    // Check if round already exists for tomorrow
+    const existingRound = await Round.findOne({
+      house: house._id,
+      date: {
+        $gte: tomorrow,
+        $lt: new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)
+      }
+    });
+
+    if (existingRound) {
+      console.log(`ℹ️  Round already exists for ${house.name} on ${tomorrow.toDateString()}`);
+      return;
+    }
+
+    // Create new round for tomorrow
+    const frDeadline = combineDateAndTime(tomorrow, house.frDeadlineTime);
+    const srDeadline = combineDateAndTime(tomorrow, house.srDeadlineTime);
+
+    const newRound = await Round.create({
+      house: house._id,
+      date: tomorrow,
+      frDeadline,
+      srDeadline,
+      status: 'pending',
+      frStatus: 'pending',
+      srStatus: 'pending',
+      forecastStatus: 'pending'
+    });
+
+    console.log(`✅ Auto-created tomorrow's round for ${house.name} on ${tomorrow.toDateString()}`);
+    console.log(`   FR Deadline: ${frDeadline.toLocaleString()}`);
+    console.log(`   SR Deadline: ${srDeadline.toLocaleString()}`);
+  } catch (error) {
+    console.error(`❌ Error auto-creating round for house ${houseId}:`, error);
+  }
+}
+
+// Auto-create rounds for tomorrow (scheduled job)
 async function autoCreateRounds() {
   try {
     const tomorrow = getTomorrowDate();
@@ -157,4 +219,4 @@ function initScheduler() {
   }, 3000);
 }
 
-module.exports = { initScheduler, updateRoundStatuses, autoCreateRounds };
+module.exports = { initScheduler, updateRoundStatuses, autoCreateRounds, autoCreateRoundForHouse };

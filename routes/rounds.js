@@ -224,6 +224,18 @@ router.put('/:id/result', protect, adminOnly, async (req, res) => {
     // Calculate winners for all bets in this round
     await calculateWinners(round);
 
+    // If both FR and SR results are now set (round finished), auto-create tomorrow's round
+    if (round.frResult !== undefined && round.srResult !== undefined) {
+      try {
+        const { autoCreateRoundForHouse } = require('../services/roundScheduler');
+        await autoCreateRoundForHouse(round.house._id || round.house);
+        console.log(`✅ Auto-created tomorrow's round for ${round.house.name || round.house}`);
+      } catch (error) {
+        console.error('❌ Error auto-creating next round:', error);
+        // Don't fail the result update if auto-create fails
+      }
+    }
+
     res.json({
       success: true,
       message: 'Results updated and winners calculated',
