@@ -33,10 +33,26 @@ const roundSchema = new mongoose.Schema({
     min: 0,
     max: 99
   },
-  // Round status lifecycle
+  // Overall round status (for compatibility)
   status: {
     type: String,
     enum: ['pending', 'live', 'fr_closed', 'sr_closed', 'finished'],
+    default: 'pending'
+  },
+  // Separate status for each game mode
+  frStatus: {
+    type: String,
+    enum: ['pending', 'live', 'finished'],
+    default: 'pending'
+  },
+  srStatus: {
+    type: String,
+    enum: ['pending', 'live', 'finished'],
+    default: 'pending'
+  },
+  forecastStatus: {
+    type: String,
+    enum: ['pending', 'live', 'finished'],
     default: 'pending'
   }
 }, {

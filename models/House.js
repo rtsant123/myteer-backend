@@ -63,6 +63,18 @@ const houseSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Days when house operates (0=Sunday, 1=Monday, ..., 6=Saturday)
+  // Default: Monday to Saturday (skip Sunday)
+  operatingDays: {
+    type: [Number],
+    default: [1, 2, 3, 4, 5, 6], // Monday-Saturday
+    validate: {
+      validator: function(v) {
+        return v.every(day => day >= 0 && day <= 6);
+      },
+      message: 'Operating days must be between 0 (Sunday) and 6 (Saturday)'
+    }
+  },
   isActive: {
     type: Boolean,
     default: true

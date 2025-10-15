@@ -196,6 +196,8 @@ router.put('/:id/result', protect, adminOnly, async (req, res) => {
       }
       round.frResult = frResult;
       round.frResultTime = new Date();
+      // Mark FR game as finished
+      round.frStatus = 'finished';
     }
 
     if (srResult !== undefined) {
@@ -207,10 +209,13 @@ router.put('/:id/result', protect, adminOnly, async (req, res) => {
       }
       round.srResult = srResult;
       round.srResultTime = new Date();
+      // Mark SR game as finished
+      round.srStatus = 'finished';
     }
 
-    // Update status to finished if both results are set
+    // Update FORECAST status: finished when BOTH FR and SR results are set
     if (round.frResult !== undefined && round.srResult !== undefined) {
+      round.forecastStatus = 'finished';
       round.status = 'finished';
     }
 

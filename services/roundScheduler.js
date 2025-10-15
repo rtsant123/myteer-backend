@@ -24,44 +24,51 @@ async function updateRoundStatuses() {
     const now = new Date();
     console.log(`🔄 [${now.toISOString()}] Checking round statuses...`);
 
-    // Find pending rounds that should be live
-    const pendingRounds = await Round.find({
-      status: 'pending',
-      frDeadline: { $lte: now }
+    // Get all non-finished rounds
+    const rounds = await Round.find({
+      $or: [
+        { frStatus: { $ne: 'finished' } },
+        { srStatus: { $ne: 'finished' } },
+        { forecastStatus: { $ne: 'finished' } }
+      ]
     }).populate('house');
 
-    for (const round of pendingRounds) {
-      round.status = 'live';
-      await round.save();
-      console.log(`✅ Round ${round._id} for ${round.house.name} is now LIVE`);
-    }
+    for (const round of rounds) {
+      let updated = false;
 
-    // Find live rounds where FR deadline passed
-    const liveRounds = await Round.find({
-      status: 'live',
-      frDeadline: { $lte: now }
-    }).populate('house');
-
-    for (const round of liveRounds) {
-      if (now >= round.srDeadline) {
-        round.status = 'sr_closed';
-      } else {
-        round.status = 'fr_closed';
+      // Update FR status: pending → live (when FR deadline passes)
+      if (round.frStatus === 'pending' && now >= round.frDeadline) {
+        round.frStatus = 'live';
+        updated = true;
+        console.log(`✅ FR game for ${round.house.name} is now LIVE`);
       }
-      await round.save();
-      console.log(`✅ Round ${round._id} for ${round.house.name} status: ${round.status}`);
-    }
 
-    // Find fr_closed rounds where SR deadline passed
-    const frClosedRounds = await Round.find({
-      status: 'fr_closed',
-      srDeadline: { $lte: now }
-    }).populate('house');
+      // Update SR status: pending → live (when SR deadline passes)
+      if (round.srStatus === 'pending' && now >= round.srDeadline) {
+        round.srStatus = 'live';
+        updated = true;
+        console.log(`✅ SR game for ${round.house.name} is now LIVE`);
+      }
 
-    for (const round of frClosedRounds) {
-      round.status = 'sr_closed';
-      await round.save();
-      console.log(`✅ Round ${round._id} for ${round.house.name} - SR now closed`);
+      // Update FORECAST status: pending → live (when FR deadline passes)
+      if (round.forecastStatus === 'pending' && now >= round.frDeadline) {
+        round.forecastStatus = 'live';
+        updated = true;
+        console.log(`✅ FORECAST game for ${round.house.name} is now LIVE`);
+      }
+
+      // Update overall status for compatibility
+      if (round.frResult !== undefined && round.srResult !== undefined) {
+        round.status = 'finished';
+      } else if (round.frStatus === 'live' || round.srStatus === 'live' || round.forecastStatus === 'live') {
+        round.status = 'live';
+      } else {
+        round.status = 'pending';
+      }
+
+      if (updated) {
+        await round.save();
+      }
     }
 
     console.log(`✅ Round status update complete`);
@@ -74,7 +81,8 @@ async function updateRoundStatuses() {
 async function autoCreateRounds() {
   try {
     const tomorrow = getTomorrowDate();
-    console.log(`🔄 Checking for missing rounds for ${tomorrow.toDateString()}...`);
+    const tomorrowDayOfWeek = tomorrow.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    console.log(`🔄 Checking for missing rounds for ${tomorrow.toDateString()} (Day ${tomorrowDayOfWeek})...`);
 
     // Get all active houses with auto-create enabled
     const houses = await House.find({
@@ -83,6 +91,12 @@ async function autoCreateRounds() {
     });
 
     for (const house of houses) {
+      // Check if house operates on tomorrow's day
+      if (!house.operatingDays || !house.operatingDays.includes(tomorrowDayOfWeek)) {
+        console.log(`⏭️  Skipping ${house.name} - doesn't operate on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][tomorrowDayOfWeek]}`);
+        continue;
+      }
+
       // Check if round already exists for tomorrow
       const existingRound = await Round.findOne({
         house: house._id,
@@ -102,7 +116,10 @@ async function autoCreateRounds() {
           date: tomorrow,
           frDeadline,
           srDeadline,
-          status: 'pending'
+          status: 'pending',
+          frStatus: 'pending',
+          srStatus: 'pending',
+          forecastStatus: 'pending'
         });
 
         console.log(`✅ Created new round for ${house.name} on ${tomorrow.toDateString()}`);
