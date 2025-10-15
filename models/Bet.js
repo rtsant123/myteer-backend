@@ -3,7 +3,19 @@ const mongoose = require('mongoose');
 const betEntrySchema = new mongoose.Schema({
   number: {
     type: Number,
-    required: true,
+    required: false,  // Not required for FORECAST mode
+    min: 0,
+    max: 99
+  },
+  frNumber: {
+    type: Number,
+    required: false,  // Required for FORECAST mode
+    min: 0,
+    max: 99
+  },
+  srNumber: {
+    type: Number,
+    required: false,  // Required for FORECAST mode
     min: 0,
     max: 99
   },
