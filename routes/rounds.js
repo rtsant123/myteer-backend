@@ -265,15 +265,29 @@ async function calculateWinners(round) {
 
         // Check FORECAST bets (both FR and SR must be set)
         if (entry.mode === 'FORECAST' && round.frResult !== undefined && round.srResult !== undefined) {
-          // Forecast requires BOTH frNumber and srNumber to match
-          if (entry.frNumber === round.frResult && entry.srNumber === round.srResult) {
-            isWinner = true;
-            // Use appropriate rate based on play type
-            if (entry.playType === 'DIRECT') {
+          const frResultStr = round.frResult.toString().padStart(2, '0');
+          const srResultStr = round.srResult.toString().padStart(2, '0');
+
+          if (entry.playType === 'DIRECT') {
+            // DIRECT: Match full numbers (FR=34, SR=53)
+            if (entry.frNumber === round.frResult && entry.srNumber === round.srResult) {
+              isWinner = true;
               winAmount = entry.amount * bet.house.forecastDirectRate;
-            } else if (entry.playType === 'HOUSE') {
+            }
+          } else if (entry.playType === 'HOUSE') {
+            // HOUSE: Match FIRST digits (FR=34→3, SR=53→5)
+            const frFirstDigit = parseInt(frResultStr[0]);
+            const srFirstDigit = parseInt(srResultStr[0]);
+            if (entry.frNumber === frFirstDigit && entry.srNumber === srFirstDigit) {
+              isWinner = true;
               winAmount = entry.amount * bet.house.forecastHouseRate;
-            } else if (entry.playType === 'ENDING') {
+            }
+          } else if (entry.playType === 'ENDING') {
+            // ENDING: Match LAST digits (FR=34→4, SR=53→3)
+            const frLastDigit = parseInt(frResultStr[1]);
+            const srLastDigit = parseInt(srResultStr[1]);
+            if (entry.frNumber === frLastDigit && entry.srNumber === srLastDigit) {
+              isWinner = true;
               winAmount = entry.amount * bet.house.forecastEndingRate;
             }
           }
