@@ -42,6 +42,94 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Myteer API is running' });
 });
 
+// Migration Endpoint (temporary - remove after running)
+app.post('/api/run-migration', async (req, res) => {
+  try {
+    const House = require('./models/House');
+    const Round = require('./models/Round');
+
+    console.log('🔄 Starting migration...');
+
+    // Migration 1: Add operatingDays to houses
+    const houses = await House.find({});
+    let housesUpdated = 0;
+
+    for (const house of houses) {
+      if (!house.operatingDays || house.operatingDays.length === 0) {
+        house.operatingDays = [1, 2, 3, 4, 5, 6]; // Monday-Saturday
+        await house.save();
+        housesUpdated++;
+      }
+    }
+
+    // Migration 2: Add game mode statuses to rounds
+    const rounds = await Round.find({});
+    let roundsUpdated = 0;
+    const now = new Date();
+
+    for (const round of rounds) {
+      let needsUpdate = false;
+
+      // Calculate frStatus if missing
+      if (!round.frStatus) {
+        if (round.frResult !== undefined && round.frResult !== null) {
+          round.frStatus = 'finished';
+        } else if (now >= round.frDeadline) {
+          round.frStatus = 'live';
+        } else {
+          round.frStatus = 'pending';
+        }
+        needsUpdate = true;
+      }
+
+      // Calculate srStatus if missing
+      if (!round.srStatus) {
+        if (round.srResult !== undefined && round.srResult !== null) {
+          round.srStatus = 'finished';
+        } else if (now >= round.srDeadline) {
+          round.srStatus = 'live';
+        } else {
+          round.srStatus = 'pending';
+        }
+        needsUpdate = true;
+      }
+
+      // Calculate forecastStatus if missing
+      if (!round.forecastStatus) {
+        if (round.frResult !== undefined && round.frResult !== null &&
+            round.srResult !== undefined && round.srResult !== null) {
+          round.forecastStatus = 'finished';
+        } else if (now >= round.frDeadline) {
+          round.forecastStatus = 'live';
+        } else {
+          round.forecastStatus = 'pending';
+        }
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        await round.save();
+        roundsUpdated++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Migration completed successfully!',
+      housesUpdated,
+      roundsUpdated
+    });
+
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
