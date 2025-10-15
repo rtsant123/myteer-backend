@@ -120,7 +120,17 @@ router.post('/place', protect, async (req, res) => {
             break;
         }
       } else if (entry.mode === 'FORECAST') {
-        rate = house.forecastRate;
+        switch (entry.playType) {
+          case 'DIRECT':
+            rate = house.forecastDirectRate;
+            break;
+          case 'HOUSE':
+            rate = house.forecastHouseRate;
+            break;
+          case 'ENDING':
+            rate = house.forecastEndingRate;
+            break;
+        }
       }
 
       entry.potentialWin = entry.amount * rate;
