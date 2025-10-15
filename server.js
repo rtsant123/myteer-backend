@@ -42,6 +42,75 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Myteer API is running' });
 });
 
+// Verification Endpoint - Check migration status
+app.get('/api/verify-migration', async (req, res) => {
+  try {
+    const House = require('./models/House');
+    const Round = require('./models/Round');
+
+    // Check houses
+    const totalHouses = await House.countDocuments();
+    const housesWithOperatingDays = await House.countDocuments({
+      operatingDays: { $exists: true, $ne: [] }
+    });
+    const sampleHouse = await House.findOne().lean();
+
+    // Check rounds
+    const totalRounds = await Round.countDocuments();
+    const roundsWithFrStatus = await Round.countDocuments({
+      frStatus: { $exists: true }
+    });
+    const roundsWithSrStatus = await Round.countDocuments({
+      srStatus: { $exists: true }
+    });
+    const roundsWithForecastStatus = await Round.countDocuments({
+      forecastStatus: { $exists: true }
+    });
+    const sampleRound = await Round.findOne().lean();
+
+    res.json({
+      success: true,
+      message: 'Migration verification complete',
+      houses: {
+        total: totalHouses,
+        withOperatingDays: housesWithOperatingDays,
+        migrationComplete: totalHouses === housesWithOperatingDays,
+        sample: sampleHouse ? {
+          name: sampleHouse.name,
+          hasOperatingDays: !!sampleHouse.operatingDays,
+          operatingDays: sampleHouse.operatingDays
+        } : null
+      },
+      rounds: {
+        total: totalRounds,
+        withFrStatus: roundsWithFrStatus,
+        withSrStatus: roundsWithSrStatus,
+        withForecastStatus: roundsWithForecastStatus,
+        migrationComplete: totalRounds === roundsWithFrStatus &&
+                          totalRounds === roundsWithSrStatus &&
+                          totalRounds === roundsWithForecastStatus,
+        sample: sampleRound ? {
+          id: sampleRound._id,
+          date: sampleRound.date,
+          frStatus: sampleRound.frStatus,
+          srStatus: sampleRound.srStatus,
+          forecastStatus: sampleRound.forecastStatus,
+          frResult: sampleRound.frResult,
+          srResult: sampleRound.srResult
+        } : null
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Verification failed',
+      error: error.message
+    });
+  }
+});
+
 // Migration Endpoint (temporary - remove after running)
 app.post('/api/run-migration', async (req, res) => {
   try {
