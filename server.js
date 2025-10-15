@@ -119,65 +119,64 @@ app.post('/api/run-migration', async (req, res) => {
 
     console.log('🔄 Starting migration...');
 
-    // Migration 1: Add operatingDays to houses
-    const houses = await House.find({});
-    let housesUpdated = 0;
-
-    for (const house of houses) {
-      if (!house.operatingDays || house.operatingDays.length === 0) {
-        house.operatingDays = [1, 2, 3, 4, 5, 6]; // Monday-Saturday
-        await house.save();
-        housesUpdated++;
-      }
-    }
+    // Migration 1: Add operatingDays to houses (using direct DB query)
+    const housesResult = await House.updateMany(
+      { operatingDays: { $exists: false } },
+      { $set: { operatingDays: [1, 2, 3, 4, 5, 6] } }
+    );
+    const housesUpdated = housesResult.modifiedCount;
 
     // Migration 2: Add game mode statuses to rounds
-    const rounds = await Round.find({});
+    const rounds = await Round.find({
+      $or: [
+        { frStatus: { $exists: false } },
+        { srStatus: { $exists: false } },
+        { forecastStatus: { $exists: false } }
+      ]
+    }).lean();
+
     let roundsUpdated = 0;
     const now = new Date();
 
     for (const round of rounds) {
-      let needsUpdate = false;
+      const update = {};
 
       // Calculate frStatus if missing
       if (!round.frStatus) {
         if (round.frResult !== undefined && round.frResult !== null) {
-          round.frStatus = 'finished';
-        } else if (now >= round.frDeadline) {
-          round.frStatus = 'live';
+          update.frStatus = 'finished';
+        } else if (now >= new Date(round.frDeadline)) {
+          update.frStatus = 'live';
         } else {
-          round.frStatus = 'pending';
+          update.frStatus = 'pending';
         }
-        needsUpdate = true;
       }
 
       // Calculate srStatus if missing
       if (!round.srStatus) {
         if (round.srResult !== undefined && round.srResult !== null) {
-          round.srStatus = 'finished';
-        } else if (now >= round.srDeadline) {
-          round.srStatus = 'live';
+          update.srStatus = 'finished';
+        } else if (now >= new Date(round.srDeadline)) {
+          update.srStatus = 'live';
         } else {
-          round.srStatus = 'pending';
+          update.srStatus = 'pending';
         }
-        needsUpdate = true;
       }
 
       // Calculate forecastStatus if missing
       if (!round.forecastStatus) {
         if (round.frResult !== undefined && round.frResult !== null &&
             round.srResult !== undefined && round.srResult !== null) {
-          round.forecastStatus = 'finished';
-        } else if (now >= round.frDeadline) {
-          round.forecastStatus = 'live';
+          update.forecastStatus = 'finished';
+        } else if (now >= new Date(round.frDeadline)) {
+          update.forecastStatus = 'live';
         } else {
-          round.forecastStatus = 'pending';
+          update.forecastStatus = 'pending';
         }
-        needsUpdate = true;
       }
 
-      if (needsUpdate) {
-        await round.save();
+      if (Object.keys(update).length > 0) {
+        await Round.updateOne({ _id: round._id }, { $set: update });
         roundsUpdated++;
       }
     }
