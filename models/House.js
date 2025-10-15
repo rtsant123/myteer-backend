@@ -30,9 +30,17 @@ const houseSchema = new mongoose.Schema({
     type: Number,
     default: 14
   },
-  forecastRate: {
+  forecastDirectRate: {
     type: Number,
     default: 400
+  },
+  forecastHouseRate: {
+    type: Number,
+    default: 40
+  },
+  forecastEndingRate: {
+    type: Number,
+    default: 40
   },
   // Deadline times for betting (in IST)
   frDeadlineTime: {

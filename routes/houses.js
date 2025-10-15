@@ -67,7 +67,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
       srDirectRate,
       srHouseRate,
       srEndingRate,
-      forecastRate,
+      forecastDirectRate,
+      forecastHouseRate,
+      forecastEndingRate,
       frDeadlineTime,
       srDeadlineTime,
       forecastDeadlineTime,
@@ -90,7 +92,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
       srDirectRate,
       srHouseRate,
       srEndingRate,
-      forecastRate,
+      forecastDirectRate,
+      forecastHouseRate,
+      forecastEndingRate,
       frDeadlineTime: frDeadlineTime || '13:00',
       srDeadlineTime: srDeadlineTime || '17:00',
       forecastDeadlineTime: forecastDeadlineTime || frDeadlineTime || '13:00',
@@ -133,7 +137,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       srDirectRate,
       srHouseRate,
       srEndingRate,
-      forecastRate,
+      forecastDirectRate,
+      forecastHouseRate,
+      forecastEndingRate,
       frDeadlineTime,
       srDeadlineTime,
       forecastDeadlineTime,
@@ -150,7 +156,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     if (srDirectRate !== undefined) house.srDirectRate = srDirectRate;
     if (srHouseRate !== undefined) house.srHouseRate = srHouseRate;
     if (srEndingRate !== undefined) house.srEndingRate = srEndingRate;
-    if (forecastRate !== undefined) house.forecastRate = forecastRate;
+    if (forecastDirectRate !== undefined) house.forecastDirectRate = forecastDirectRate;
+    if (forecastHouseRate !== undefined) house.forecastHouseRate = forecastHouseRate;
+    if (forecastEndingRate !== undefined) house.forecastEndingRate = forecastEndingRate;
     if (frDeadlineTime !== undefined) house.frDeadlineTime = frDeadlineTime;
     if (srDeadlineTime !== undefined) house.srDeadlineTime = srDeadlineTime;
     if (forecastDeadlineTime !== undefined) house.forecastDeadlineTime = forecastDeadlineTime;
@@ -173,11 +181,11 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 });
 
 // @route   DELETE /api/houses/:id
-// @desc    Delete house (soft delete)
+// @desc    Delete house (permanent delete)
 // @access  Private/Admin
 router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const house = await House.findById(req.params.id);
+    const house = await House.findByIdAndDelete(req.params.id);
 
     if (!house) {
       return res.status(404).json({
@@ -185,10 +193,6 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
         message: 'House not found'
       });
     }
-
-    // Soft delete by setting isActive to false
-    house.isActive = false;
-    await house.save();
 
     res.json({
       success: true,
