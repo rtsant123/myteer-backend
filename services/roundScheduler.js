@@ -33,45 +33,67 @@ async function updateRoundStatuses() {
       ]
     }).populate('house');
 
+    console.log(`📊 Found ${rounds.length} rounds to check`);
+
+    let updatedCount = 0;
+
     for (const round of rounds) {
-      let updated = false;
+      try {
+        let updated = false;
+        const houseName = round.house ? round.house.name : `House ID: ${round.house}`;
 
-      // Update FR status: pending → live (when FR deadline passes)
-      if (round.frStatus === 'pending' && now >= round.frDeadline) {
-        round.frStatus = 'live';
-        updated = true;
-        console.log(`✅ FR game for ${round.house.name} is now LIVE`);
-      }
+        console.log(`🔍 Checking round ${round._id} for ${houseName}:`, {
+          frStatus: round.frStatus,
+          srStatus: round.srStatus,
+          forecastStatus: round.forecastStatus,
+          frDeadline: round.frDeadline,
+          srDeadline: round.srDeadline,
+          now: now,
+          frPassed: now >= round.frDeadline,
+          srPassed: now >= round.srDeadline
+        });
 
-      // Update SR status: pending → live (when SR deadline passes)
-      if (round.srStatus === 'pending' && now >= round.srDeadline) {
-        round.srStatus = 'live';
-        updated = true;
-        console.log(`✅ SR game for ${round.house.name} is now LIVE`);
-      }
+        // Update FR status: pending → live (when FR deadline passes)
+        if (round.frStatus === 'pending' && now >= round.frDeadline) {
+          round.frStatus = 'live';
+          updated = true;
+          console.log(`✅ FR game for ${houseName} is now LIVE`);
+        }
 
-      // Update FORECAST status: pending → live (when FR deadline passes)
-      if (round.forecastStatus === 'pending' && now >= round.frDeadline) {
-        round.forecastStatus = 'live';
-        updated = true;
-        console.log(`✅ FORECAST game for ${round.house.name} is now LIVE`);
-      }
+        // Update SR status: pending → live (when SR deadline passes)
+        if (round.srStatus === 'pending' && now >= round.srDeadline) {
+          round.srStatus = 'live';
+          updated = true;
+          console.log(`✅ SR game for ${houseName} is now LIVE`);
+        }
 
-      // Update overall status for compatibility
-      if (round.frResult !== undefined && round.srResult !== undefined) {
-        round.status = 'finished';
-      } else if (round.frStatus === 'live' || round.srStatus === 'live' || round.forecastStatus === 'live') {
-        round.status = 'live';
-      } else {
-        round.status = 'pending';
-      }
+        // Update FORECAST status: pending → live (when FR deadline passes)
+        if (round.forecastStatus === 'pending' && now >= round.frDeadline) {
+          round.forecastStatus = 'live';
+          updated = true;
+          console.log(`✅ FORECAST game for ${houseName} is now LIVE`);
+        }
 
-      if (updated) {
-        await round.save();
+        // Update overall status for compatibility
+        if (round.frResult !== undefined && round.srResult !== undefined) {
+          round.status = 'finished';
+        } else if (round.frStatus === 'live' || round.srStatus === 'live' || round.forecastStatus === 'live') {
+          round.status = 'live';
+        } else {
+          round.status = 'pending';
+        }
+
+        if (updated) {
+          await round.save();
+          updatedCount++;
+          console.log(`💾 Saved updates for round ${round._id}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error updating round ${round._id}:`, error);
       }
     }
 
-    console.log(`✅ Round status update complete`);
+    console.log(`✅ Round status update complete - Updated ${updatedCount} rounds`);
   } catch (error) {
     console.error('❌ Error updating round statuses:', error);
   }
