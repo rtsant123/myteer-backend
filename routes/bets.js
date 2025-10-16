@@ -227,6 +227,32 @@ router.get('/user', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/bets/round/:roundId
+// @desc    Get current user's bets for a specific round
+// @access  Private
+router.get('/round/:roundId', protect, async (req, res) => {
+  try {
+    const bets = await Bet.find({
+      user: req.user._id,
+      round: req.params.roundId
+    })
+      .populate('house')
+      .populate('round')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: bets.length,
+      bets
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   GET /api/bets/user/:userId
 // @desc    Get user bets by userId (admin or own bets)
 // @access  Private
