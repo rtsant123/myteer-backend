@@ -10,6 +10,19 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Auto-update round statuses on every request (middleware)
+let lastStatusUpdate = 0;
+app.use(async (req, res, next) => {
+  const now = Date.now();
+  // Update statuses every 30 seconds max (to avoid too many updates)
+  if (now - lastStatusUpdate > 30000) {
+    lastStatusUpdate = now;
+    const { updateRoundStatuses } = require('./services/roundScheduler');
+    updateRoundStatuses().catch(err => console.error('Status update error:', err));
+  }
+  next();
+});
+
 // MongoDB Connection
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/myteer';
 mongoose.connect(MONGO_URI, {
