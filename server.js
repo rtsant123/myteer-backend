@@ -42,6 +42,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Myteer API is running' });
 });
 
+// Manual trigger for round status updates
+app.post('/api/update-round-statuses', async (req, res) => {
+  try {
+    const { updateRoundStatuses } = require('./services/roundScheduler');
+    await updateRoundStatuses();
+    res.json({ success: true, message: 'Round statuses updated successfully' });
+  } catch (error) {
+    console.error('❌ Error updating round statuses:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Verification Endpoint - Check migration status
 app.get('/api/verify-migration', async (req, res) => {
   try {
