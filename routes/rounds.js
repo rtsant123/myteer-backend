@@ -12,12 +12,33 @@ const { protect, adminOnly } = require('../middleware/auth');
 // @access  Public
 router.get('/active/:houseId', async (req, res) => {
   try {
-    const round = await Round.findOne({
+    // Priority 1: Find LIVE rounds (deadline passed, waiting for results)
+    let round = await Round.findOne({
       house: req.params.houseId,
-      status: { $in: ['pending', 'live', 'fr_closed', 'sr_closed'] }
+      status: 'live'
     })
-    .sort({ date: -1 }) // Get most recent round
+    .sort({ date: 1 }) // Oldest first (current day's round)
     .populate('house');
+
+    // Priority 2: If no live round, find PENDING rounds (upcoming)
+    if (!round) {
+      round = await Round.findOne({
+        house: req.params.houseId,
+        status: 'pending'
+      })
+      .sort({ date: 1 }) // Oldest first (today's round before tomorrow's)
+      .populate('house');
+    }
+
+    // Priority 3: If no pending/live, find any non-finished round
+    if (!round) {
+      round = await Round.findOne({
+        house: req.params.houseId,
+        status: { $in: ['fr_closed', 'sr_closed'] }
+      })
+      .sort({ date: 1 })
+      .populate('house');
+    }
 
     if (!round) {
       return res.status(404).json({
