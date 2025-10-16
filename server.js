@@ -76,7 +76,7 @@ app.get('/api/debug/rounds', async (req, res) => {
     const now = new Date();
     const roundsData = rounds.map(round => ({
       id: round._id,
-      houseName: round.house.name,
+      houseName: round.house ? round.house.name : `House ID: ${round.house}`,
       date: round.date,
       frDeadline: round.frDeadline,
       srDeadline: round.srDeadline,
