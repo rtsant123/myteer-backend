@@ -67,6 +67,41 @@ app.post('/api/update-round-statuses', async (req, res) => {
   }
 });
 
+// Debug endpoint - show all rounds with their statuses
+app.get('/api/debug/rounds', async (req, res) => {
+  try {
+    const Round = require('./models/Round');
+    const rounds = await Round.find({}).populate('house').sort({ date: -1 }).limit(20);
+
+    const now = new Date();
+    const roundsData = rounds.map(round => ({
+      id: round._id,
+      houseName: round.house.name,
+      date: round.date,
+      frDeadline: round.frDeadline,
+      srDeadline: round.srDeadline,
+      frStatus: round.frStatus,
+      srStatus: round.srStatus,
+      forecastStatus: round.forecastStatus,
+      status: round.status,
+      frResult: round.frResult,
+      srResult: round.srResult,
+      currentTime: now,
+      frDeadlinePassed: now >= round.frDeadline,
+      srDeadlinePassed: now >= round.srDeadline
+    }));
+
+    res.json({
+      success: true,
+      currentTime: now,
+      rounds: roundsData
+    });
+  } catch (error) {
+    console.error('❌ Debug error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Verification Endpoint - Check migration status
 app.get('/api/verify-migration', async (req, res) => {
   try {
