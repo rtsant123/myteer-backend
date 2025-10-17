@@ -53,21 +53,24 @@ async function updateRoundStatuses() {
           srPassed: now >= round.srDeadline
         });
 
-        // Update FR status: pending → live (when FR deadline passes)
+        // FR STATUS TRANSITIONS
+        // FR: pending → live (when FR deadline passes)
         if (round.frStatus === 'pending' && now >= round.frDeadline) {
           round.frStatus = 'live';
           updated = true;
-          console.log(`✅ FR game for ${houseName} is now LIVE`);
+          console.log(`✅ FR game for ${houseName} is now LIVE (waiting for FR result)`);
         }
 
-        // Update SR status: pending → live (when SR deadline passes)
+        // SR STATUS TRANSITIONS (SEQUENTIAL - only after FR is finished)
+        // SR: pending → live (when SR deadline passes AND FR is finished)
         if (round.srStatus === 'pending' && now >= round.srDeadline) {
           round.srStatus = 'live';
           updated = true;
-          console.log(`✅ SR game for ${houseName} is now LIVE`);
+          console.log(`✅ SR game for ${houseName} is now LIVE (waiting for SR result)`);
         }
 
-        // Update FORECAST status: pending → live (when FR deadline passes)
+        // FORECAST STATUS TRANSITIONS
+        // Forecast: pending → live (when FR deadline passes)
         if (round.forecastStatus === 'pending' && now >= round.frDeadline) {
           round.forecastStatus = 'live';
           updated = true;
@@ -149,7 +152,7 @@ async function autoCreateRoundForHouse(houseId) {
       srDeadline,
       status: 'pending',
       frStatus: 'pending',
-      srStatus: 'pending',
+      srStatus: 'not_available', // SR not available until FR result is published
       forecastStatus: 'pending'
     });
 
@@ -202,7 +205,7 @@ async function autoCreateRounds() {
           srDeadline,
           status: 'pending',
           frStatus: 'pending',
-          srStatus: 'pending',
+          srStatus: 'not_available', // SR not available until FR result is published
           forecastStatus: 'pending'
         });
 
@@ -228,16 +231,16 @@ function initScheduler() {
   cron.schedule('* * * * *', updateRoundStatuses);
   console.log('✅ Status updater scheduled (every minute)');
 
-  // Auto-create rounds at midnight IST (18:30 UTC)
-  cron.schedule('30 18 * * *', autoCreateRounds, {
-    timezone: 'UTC'
-  });
-  console.log('✅ Auto-create scheduler enabled (daily at midnight IST)');
+  // DISABLED: Auto-create at midnight
+  // Now rounds are auto-created ONLY when admin updates results (sequential trigger)
+  // cron.schedule('30 18 * * *', autoCreateRounds, {
+  //   timezone: 'UTC'
+  // });
+  console.log('ℹ️  Auto-create at midnight DISABLED - rounds created after result updates');
 
-  // Run once on startup
+  // Run status updater once on startup
   setTimeout(() => {
     updateRoundStatuses();
-    autoCreateRounds();
   }, 3000);
 }
 

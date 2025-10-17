@@ -47,8 +47,8 @@ const roundSchema = new mongoose.Schema({
   },
   srStatus: {
     type: String,
-    enum: ['pending', 'live', 'finished'],
-    default: 'pending'
+    enum: ['not_available', 'pending', 'live', 'finished'],
+    default: 'not_available' // SR is not available until FR result is published
   },
   forecastStatus: {
     type: String,
