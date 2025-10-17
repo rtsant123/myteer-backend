@@ -135,21 +135,33 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
     if (deadline) {
       deadlineDate = new Date(deadline);
+      console.log('📅 Using provided deadline:', deadlineDate.toISOString());
     } else {
       // Use house default time (in IST - UTC+5:30)
       const roundDate = new Date(date);
       const [hour, min] = houseExists.deadlineTime.split(':').map(Number);
+
+      console.log('📅 TIMEZONE CONVERSION DEBUG:');
+      console.log('  Input date:', date);
+      console.log('  House deadline time:', houseExists.deadlineTime);
+      console.log('  Parsed roundDate:', roundDate.toISOString());
 
       // Get UTC date components (date-only strings are parsed as UTC midnight)
       const year = roundDate.getUTCFullYear();
       const month = roundDate.getUTCMonth();
       const day = roundDate.getUTCDate();
 
+      console.log(`  UTC components: ${year}-${month + 1}-${day} ${hour}:${min}`);
+
       // Create date at specified IST time (temporarily as UTC)
       deadlineDate = new Date(Date.UTC(year, month, day, hour, min, 0, 0));
+      console.log('  Before IST conversion:', deadlineDate.toISOString());
+
       // Convert from IST to UTC by subtracting IST offset (5 hours 30 minutes)
       // IST = UTC+5:30, so UTC = IST - 5:30
       deadlineDate = new Date(deadlineDate.getTime() - (5.5 * 60 * 60 * 1000));
+      console.log('  After IST conversion (final):', deadlineDate.toISOString());
+      console.log('  Current server time:', new Date().toISOString());
     }
 
     // Check if round already exists for this house and date
