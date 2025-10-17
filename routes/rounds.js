@@ -8,19 +8,25 @@ const Transaction = require('../models/Transaction');
 const { protect, adminOnly } = require('../middleware/auth');
 
 // @route   GET /api/rounds/active/:houseId
-// @desc    Get active round for house
+// @desc    Get active round for house (or today's finished round)
 // @access  Public
 router.get('/active/:houseId', async (req, res) => {
   try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
     // Priority 1: Find LIVE rounds (deadline passed, waiting for results)
     let round = await Round.findOne({
       house: req.params.houseId,
-      status: 'live'
+      status: 'live',
+      date: { $gte: today, $lt: tomorrow }
     })
     .sort({ date: 1 }) // Oldest first (current day's round)
     .populate('house');
 
-    // Priority 2: If no live round, find PENDING rounds (upcoming)
+    // Priority 2: If no live round, find PENDING rounds (upcoming, today or future)
     if (!round) {
       round = await Round.findOne({
         house: req.params.houseId,
@@ -30,7 +36,19 @@ router.get('/active/:houseId', async (req, res) => {
       .populate('house');
     }
 
-    // Priority 3: If no pending/live, find any non-finished round
+    // Priority 3: If no pending/live, find FINISHED round from TODAY
+    // This is CRITICAL: We need to show finished rounds so they appear in FINISHED tab!
+    if (!round) {
+      round = await Round.findOne({
+        house: req.params.houseId,
+        status: 'finished',
+        date: { $gte: today, $lt: tomorrow }
+      })
+      .sort({ date: -1 }) // Most recent finished round from today
+      .populate('house');
+    }
+
+    // Priority 4: If no finished from today, find any non-finished round
     if (!round) {
       round = await Round.findOne({
         house: req.params.houseId,
