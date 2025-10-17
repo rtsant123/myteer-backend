@@ -1,12 +1,13 @@
 {
   "name": "myteer-backend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Teer Betting App Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "migrate": "node scripts/run-all-migrations.js"
+    "migrate": "node scripts/run-all-migrations.js",
+    "cleanup": "node scripts/cleanup-database.js"
   },
   "keywords": [
     "teer",
