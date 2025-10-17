@@ -8,7 +8,16 @@ const transactionSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['deposit', 'withdrawal', 'bet_placed', 'bet_won', 'bet_lost'],
+    enum: [
+      'deposit',
+      'withdrawal',
+      'withdrawal_pending',
+      'withdrawal_approved',
+      'withdrawal_refund',
+      'bet_placed',
+      'bet_won',
+      'bet_lost'
+    ],
     required: true
   },
   amount: {
@@ -27,6 +36,10 @@ const transactionSchema = new mongoose.Schema({
   relatedBet: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bet'
+  },
+  relatedWithdrawal: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Withdrawal'
   },
   status: {
     type: String,

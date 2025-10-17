@@ -72,12 +72,29 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
-    // Create withdrawal request
+    // IMMEDIATE DEDUCTION: Deduct balance when request is created (not when approved)
+    const balanceBefore = user.balance;
+    user.balance -= amount;
+    await user.save();
+
+    // Create withdrawal request with balance already deducted
     const withdrawal = await Withdrawal.create({
       user: req.user._id,
       amount,
       paymentMethod: paymentMethodId,
       paymentDetails: paymentDetails || {},
+      status: 'pending'
+    });
+
+    // Create pending withdrawal transaction
+    await Transaction.create({
+      user: user._id,
+      type: 'withdrawal_pending',
+      amount: -amount,
+      balanceBefore,
+      balanceAfter: user.balance,
+      description: `Withdrawal request pending (${paymentDetails?.upiId || paymentDetails?.accountNumber || 'N/A'})`,
+      relatedWithdrawal: withdrawal._id,
       status: 'pending'
     });
 
@@ -87,7 +104,7 @@ router.post('/', protect, async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Withdrawal request submitted successfully',
+      message: 'Withdrawal request submitted successfully. Amount deducted from wallet.',
       withdrawal: populatedWithdrawal
     });
   } catch (error) {
@@ -259,7 +276,7 @@ router.put('/:id/approve', protect, adminOnly, async (req, res) => {
       });
     }
 
-    // Update user balance
+    // Get user (balance already deducted when request was created)
     const user = await User.findById(withdrawal.user);
     if (!user) {
       return res.status(404).json({
@@ -268,19 +285,7 @@ router.put('/:id/approve', protect, adminOnly, async (req, res) => {
       });
     }
 
-    // Double-check balance (in case it changed since request)
-    if (user.balance < withdrawal.amount) {
-      return res.status(400).json({
-        success: false,
-        message: 'User has insufficient balance'
-      });
-    }
-
-    const balanceBefore = user.balance;
-    user.balance -= withdrawal.amount;
-    await user.save();
-
-    // Update withdrawal status
+    // Update withdrawal status to approved
     withdrawal.status = 'approved';
     withdrawal.processedBy = req.user._id;
     withdrawal.processedAt = new Date();
@@ -289,14 +294,15 @@ router.put('/:id/approve', protect, adminOnly, async (req, res) => {
     }
     await withdrawal.save();
 
-    // Create transaction
+    // Create approval transaction (balance was already deducted, just marking as completed)
     await Transaction.create({
       user: user._id,
-      type: 'withdrawal',
+      type: 'withdrawal_approved',
       amount: -withdrawal.amount,
-      balanceBefore,
-      balanceAfter: user.balance,
-      description: `Withdrawal approved to ${withdrawal.paymentDetails?.upiId || withdrawal.paymentDetails?.accountNumber || 'N/A'}`,
+      balanceBefore: user.balance, // Current balance (already deducted)
+      balanceAfter: user.balance,  // No change, just status update
+      description: `Withdrawal approved and processed to ${withdrawal.paymentDetails?.upiId || withdrawal.paymentDetails?.accountNumber || 'N/A'}`,
+      relatedWithdrawal: withdrawal._id,
       status: 'completed'
     });
 
@@ -339,7 +345,21 @@ router.put('/:id/reject', protect, adminOnly, async (req, res) => {
       });
     }
 
-    // Update withdrawal status (no balance change on rejection)
+    // Get user and REFUND the balance (was deducted when request was created)
+    const user = await User.findById(withdrawal.user);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Refund the amount back to user
+    const balanceBefore = user.balance;
+    user.balance += withdrawal.amount;
+    await user.save();
+
+    // Update withdrawal status to rejected
     withdrawal.status = 'rejected';
     withdrawal.processedBy = req.user._id;
     withdrawal.processedAt = new Date();
@@ -347,6 +367,18 @@ router.put('/:id/reject', protect, adminOnly, async (req, res) => {
       withdrawal.adminNote = req.body.adminNote;
     }
     await withdrawal.save();
+
+    // Create refund transaction
+    await Transaction.create({
+      user: user._id,
+      type: 'withdrawal_refund',
+      amount: withdrawal.amount,
+      balanceBefore,
+      balanceAfter: user.balance,
+      description: `Withdrawal rejected - Amount refunded${req.body.adminNote ? ': ' + req.body.adminNote : ''}`,
+      relatedWithdrawal: withdrawal._id,
+      status: 'completed'
+    });
 
     const populatedWithdrawal = await Withdrawal.findById(withdrawal._id)
       .populate('user', 'name phone')
