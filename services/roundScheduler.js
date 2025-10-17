@@ -150,7 +150,7 @@ async function autoCreateRoundForHouse(houseId) {
       deadline,
       status: 'pending',
       frStatus: 'pending',
-      srStatus: 'not_available', // SR not available until FR result is published
+      srStatus: 'pending', // Both FR and SR available for betting together
       forecastStatus: 'pending'
     });
 
@@ -200,7 +200,7 @@ async function autoCreateRounds() {
           deadline,
           status: 'pending',
           frStatus: 'pending',
-          srStatus: 'not_available', // SR not available until FR result is published
+          srStatus: 'pending', // Both FR and SR available for betting together
           forecastStatus: 'pending'
         });
 
