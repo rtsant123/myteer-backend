@@ -3,11 +3,23 @@ const Round = require('../models/Round');
 const House = require('../models/House');
 
 // Helper to parse time string (HH:MM) and combine with date
+// Converts IST time to UTC for storage
 function combineDateAndTime(dateStr, timeStr) {
   const [hours, minutes] = timeStr.split(':').map(Number);
   const date = new Date(dateStr);
-  date.setHours(hours, minutes, 0, 0);
-  return date;
+
+  // Get UTC date components (date-only strings are parsed as UTC midnight)
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+
+  // Create date at specified IST time (temporarily as UTC)
+  let deadline = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+  // Convert from IST to UTC by subtracting IST offset (5 hours 30 minutes)
+  // IST = UTC+5:30, so UTC = IST - 5:30
+  deadline = new Date(deadline.getTime() - (5.5 * 60 * 60 * 1000));
+
+  return deadline;
 }
 
 // Helper to get tomorrow's date
