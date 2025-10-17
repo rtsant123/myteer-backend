@@ -111,8 +111,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
     const {
       house,
       date,
-      frDeadline,
-      srDeadline
+      deadline
     } = req.body;
 
     if (!house || !date) {
@@ -131,17 +130,15 @@ router.post('/', protect, adminOnly, async (req, res) => {
       });
     }
 
-    // Calculate deadlines from house default times if not provided
-    let frDeadlineDate, srDeadlineDate;
+    // Calculate deadline from house default time if not provided
+    let deadlineDate;
 
-    if (frDeadline && srDeadline) {
-      frDeadlineDate = new Date(frDeadline);
-      srDeadlineDate = new Date(srDeadline);
+    if (deadline) {
+      deadlineDate = new Date(deadline);
     } else {
-      // Use house default times (in IST - UTC+5:30)
+      // Use house default time (in IST - UTC+5:30)
       const roundDate = new Date(date);
-      const [frHour, frMin] = houseExists.frDeadlineTime.split(':').map(Number);
-      const [srHour, srMin] = houseExists.srDeadlineTime.split(':').map(Number);
+      const [hour, min] = houseExists.deadlineTime.split(':').map(Number);
 
       // Create date in IST (UTC+5:30)
       // Get the date in IST format
@@ -150,12 +147,9 @@ router.post('/', protect, adminOnly, async (req, res) => {
       const day = roundDate.getDate();
 
       // Create UTC time by subtracting IST offset (5 hours 30 minutes)
-      frDeadlineDate = new Date(Date.UTC(year, month, day, frHour, frMin, 0, 0));
+      deadlineDate = new Date(Date.UTC(year, month, day, hour, min, 0, 0));
       // Subtract 5:30 hours to convert from IST to UTC
-      frDeadlineDate.setMinutes(frDeadlineDate.getMinutes() - 330); // 330 = 5*60 + 30
-
-      srDeadlineDate = new Date(Date.UTC(year, month, day, srHour, srMin, 0, 0));
-      srDeadlineDate.setMinutes(srDeadlineDate.getMinutes() - 330);
+      deadlineDate.setMinutes(deadlineDate.getMinutes() - 330); // 330 = 5*60 + 30
     }
 
     // Check if round already exists for this house and date
@@ -182,16 +176,25 @@ router.post('/', protect, adminOnly, async (req, res) => {
     // Determine initial status
     const now = new Date();
     let status = 'pending';
-    if (now >= frDeadlineDate) {
+    let frStatus = 'pending';
+    let srStatus = 'not_available'; // SR not available until FR result published
+    let forecastStatus = 'pending';
+
+    if (now >= deadlineDate) {
       status = 'live';
+      frStatus = 'live';
+      srStatus = 'not_available'; // SR still not available (needs FR result first)
+      forecastStatus = 'live';
     }
 
     const round = await Round.create({
       house,
       date,
-      frDeadline: frDeadlineDate,
-      srDeadline: srDeadlineDate,
-      status
+      deadline: deadlineDate,
+      status,
+      frStatus,
+      srStatus,
+      forecastStatus
     });
 
     const populatedRound = await Round.findById(round._id).populate('house');

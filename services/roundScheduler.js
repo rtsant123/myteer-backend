@@ -42,36 +42,36 @@ async function updateRoundStatuses() {
         let updated = false;
         const houseName = round.house ? round.house.name : `House ID: ${round.house}`;
 
+        const deadlinePassed = now >= round.deadline;
+
         console.log(`🔍 Checking round ${round._id} for ${houseName}:`, {
           frStatus: round.frStatus,
           srStatus: round.srStatus,
           forecastStatus: round.forecastStatus,
-          frDeadline: round.frDeadline,
-          srDeadline: round.srDeadline,
+          deadline: round.deadline,
           now: now,
-          frPassed: now >= round.frDeadline,
-          srPassed: now >= round.srDeadline
+          deadlinePassed: deadlinePassed
         });
 
         // FR STATUS TRANSITIONS
-        // FR: pending → live (when FR deadline passes)
-        if (round.frStatus === 'pending' && now >= round.frDeadline) {
+        // FR: pending → live (when deadline passes)
+        if (round.frStatus === 'pending' && deadlinePassed) {
           round.frStatus = 'live';
           updated = true;
           console.log(`✅ FR game for ${houseName} is now LIVE (waiting for FR result)`);
         }
 
         // SR STATUS TRANSITIONS (SEQUENTIAL - only after FR is finished)
-        // SR: pending → live (when SR deadline passes AND FR is finished)
-        if (round.srStatus === 'pending' && now >= round.srDeadline) {
+        // SR: pending → live (when deadline passes AND FR is finished)
+        if (round.srStatus === 'pending' && deadlinePassed) {
           round.srStatus = 'live';
           updated = true;
           console.log(`✅ SR game for ${houseName} is now LIVE (waiting for SR result)`);
         }
 
         // FORECAST STATUS TRANSITIONS
-        // Forecast: pending → live (when FR deadline passes)
-        if (round.forecastStatus === 'pending' && now >= round.frDeadline) {
+        // Forecast: pending → live (when deadline passes)
+        if (round.forecastStatus === 'pending' && deadlinePassed) {
           round.forecastStatus = 'live';
           updated = true;
           console.log(`✅ FORECAST game for ${houseName} is now LIVE`);
@@ -142,14 +142,12 @@ async function autoCreateRoundForHouse(houseId) {
     }
 
     // Create new round for tomorrow
-    const frDeadline = combineDateAndTime(tomorrow, house.frDeadlineTime);
-    const srDeadline = combineDateAndTime(tomorrow, house.srDeadlineTime);
+    const deadline = combineDateAndTime(tomorrow, house.deadlineTime);
 
     const newRound = await Round.create({
       house: house._id,
       date: tomorrow,
-      frDeadline,
-      srDeadline,
+      deadline,
       status: 'pending',
       frStatus: 'pending',
       srStatus: 'not_available', // SR not available until FR result is published
@@ -157,8 +155,7 @@ async function autoCreateRoundForHouse(houseId) {
     });
 
     console.log(`✅ Auto-created tomorrow's round for ${house.name} on ${tomorrow.toDateString()}`);
-    console.log(`   FR Deadline: ${frDeadline.toLocaleString()}`);
-    console.log(`   SR Deadline: ${srDeadline.toLocaleString()}`);
+    console.log(`   Deadline: ${deadline.toLocaleString()}`);
   } catch (error) {
     console.error(`❌ Error auto-creating round for house ${houseId}:`, error);
   }
@@ -195,14 +192,12 @@ async function autoCreateRounds() {
 
       if (!existingRound) {
         // Create new round for tomorrow
-        const frDeadline = combineDateAndTime(tomorrow, house.frDeadlineTime);
-        const srDeadline = combineDateAndTime(tomorrow, house.srDeadlineTime);
+        const deadline = combineDateAndTime(tomorrow, house.deadlineTime);
 
         const newRound = await Round.create({
           house: house._id,
           date: tomorrow,
-          frDeadline,
-          srDeadline,
+          deadline,
           status: 'pending',
           frStatus: 'pending',
           srStatus: 'not_available', // SR not available until FR result is published
@@ -210,8 +205,7 @@ async function autoCreateRounds() {
         });
 
         console.log(`✅ Created new round for ${house.name} on ${tomorrow.toDateString()}`);
-        console.log(`   FR Deadline: ${frDeadline.toLocaleString()}`);
-        console.log(`   SR Deadline: ${srDeadline.toLocaleString()}`);
+        console.log(`   Deadline: ${deadline.toLocaleString()}`);
       } else {
         console.log(`ℹ️  Round already exists for ${house.name} on ${tomorrow.toDateString()}`);
       }

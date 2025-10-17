@@ -10,12 +10,8 @@ const roundSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
-  // Betting deadline times (calculated from house settings + date)
-  frDeadline: {
-    type: Date,
-    required: true
-  },
-  srDeadline: {
+  // Single betting deadline for all game modes (calculated from house deadlineTime + date)
+  deadline: {
     type: Date,
     required: true
   },
@@ -61,6 +57,6 @@ const roundSchema = new mongoose.Schema({
 
 // Index for efficient queries
 roundSchema.index({ house: 1, date: -1 });
-roundSchema.index({ status: 1, frDeadline: 1, srDeadline: 1 });
+roundSchema.index({ status: 1, deadline: 1 });
 
 module.exports = mongoose.model('Round', roundSchema);
