@@ -177,13 +177,13 @@ router.post('/', protect, adminOnly, async (req, res) => {
     const now = new Date();
     let status = 'pending';
     let frStatus = 'pending';
-    let srStatus = 'not_available'; // SR not available until FR result published
+    let srStatus = 'pending'; // Both FR and SR available for betting together
     let forecastStatus = 'pending';
 
     if (now >= deadlineDate) {
       status = 'live';
       frStatus = 'live';
-      srStatus = 'not_available'; // SR still not available (needs FR result first)
+      srStatus = 'live'; // Both FR and SR go live together when deadline passes
       forecastStatus = 'live';
     }
 
@@ -240,12 +240,6 @@ router.put('/:id/result', protect, adminOnly, async (req, res) => {
       round.frResultTime = new Date();
       // Mark FR game as finished
       round.frStatus = 'finished';
-
-      // CRITICAL: Enable SR betting now that FR is finished (sequential logic)
-      if (round.srStatus === 'not_available') {
-        round.srStatus = 'pending';
-        console.log(`✅ FR result published - SR betting is now OPEN for ${round.house.name || round.house}`);
-      }
     }
 
     if (srResult !== undefined) {
