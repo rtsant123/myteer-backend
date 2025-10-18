@@ -119,7 +119,6 @@ async function updateRoundStatuses() {
 async function autoCreateRoundForHouse(houseId) {
   try {
     const tomorrow = getTomorrowDate();
-    const tomorrowDayOfWeek = tomorrow.getDay();
 
     // Get the house
     const house = await House.findById(houseId);
@@ -134,32 +133,50 @@ async function autoCreateRoundForHouse(houseId) {
       return;
     }
 
-    // Check if house operates on tomorrow's day
-    if (!house.operatingDays || !house.operatingDays.includes(tomorrowDayOfWeek)) {
-      console.log(`⏭️  Skipping ${house.name} - doesn't operate on ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][tomorrowDayOfWeek]}`);
+    // Find next operating day (starting from tomorrow)
+    let nextOperatingDate = new Date(tomorrow);
+    let nextDayOfWeek = nextOperatingDate.getDay();
+    let daysChecked = 0;
+    const maxDaysToCheck = 7; // Don't check more than a week
+
+    while (daysChecked < maxDaysToCheck) {
+      if (house.operatingDays && house.operatingDays.includes(nextDayOfWeek)) {
+        // Found an operating day
+        break;
+      }
+      // Move to next day
+      nextOperatingDate.setDate(nextOperatingDate.getDate() + 1);
+      nextDayOfWeek = nextOperatingDate.getDay();
+      daysChecked++;
+    }
+
+    if (daysChecked >= maxDaysToCheck) {
+      console.log(`⏭️  Skipping ${house.name} - no operating days found in next week`);
       return;
     }
 
-    // Check if round already exists for tomorrow
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    // Check if round already exists for this date
     const existingRound = await Round.findOne({
       house: house._id,
       date: {
-        $gte: tomorrow,
-        $lt: new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)
+        $gte: nextOperatingDate,
+        $lt: new Date(nextOperatingDate.getTime() + 24 * 60 * 60 * 1000)
       }
     });
 
     if (existingRound) {
-      console.log(`ℹ️  Round already exists for ${house.name} on ${tomorrow.toDateString()}`);
+      console.log(`ℹ️  Round already exists for ${house.name} on ${nextOperatingDate.toDateString()}`);
       return;
     }
 
-    // Create new round for tomorrow
-    const deadline = combineDateAndTime(tomorrow, house.deadlineTime);
+    // Create new round for next operating day
+    const deadline = combineDateAndTime(nextOperatingDate, house.deadlineTime);
 
     const newRound = await Round.create({
       house: house._id,
-      date: tomorrow,
+      date: nextOperatingDate,
       deadline,
       deadlineTime: house.deadlineTime,
       status: 'pending',
@@ -168,7 +185,7 @@ async function autoCreateRoundForHouse(houseId) {
       forecastStatus: 'pending'
     });
 
-    console.log(`✅ Auto-created tomorrow's round for ${house.name} on ${tomorrow.toDateString()}`);
+    console.log(`✅ Auto-created round for ${house.name} on ${nextOperatingDate.toDateString()} (${dayNames[nextDayOfWeek]})`);
     console.log(`   Deadline: ${deadline.toLocaleString()}`);
   } catch (error) {
     console.error(`❌ Error auto-creating round for house ${houseId}:`, error);

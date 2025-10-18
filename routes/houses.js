@@ -104,7 +104,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
       forecastEndingRate,
       deadlineTime,
       autoCreateRounds: autoCreateRounds !== undefined ? autoCreateRounds : true,
-      operatingDays: operatingDays || [1, 2, 3, 4, 5, 6],
+      operatingDays: operatingDays || [1, 2, 3, 4, 5, 6], // Mon-Sat by default (0=Sunday excluded)
       isActive: isActive !== undefined ? isActive : true
     });
 
