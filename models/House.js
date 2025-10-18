@@ -45,7 +45,7 @@ const houseSchema = new mongoose.Schema({
   // Single deadline time for all betting (FR, SR, Forecast) in IST
   deadlineTime: {
     type: String,
-    default: '16:00', // 4:00 PM IST
+    default: '18:00', // 6:00 PM IST
     required: true
   },
   // Auto-create rounds
