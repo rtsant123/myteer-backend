@@ -78,6 +78,44 @@ router.get('/active/:houseId', async (req, res) => {
   }
 });
 
+// @route   GET /api/rounds/finished/:houseId
+// @desc    Get finished round from today for house (for FINISHED tab)
+// @access  Public
+router.get('/finished/:houseId', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Find FINISHED round from TODAY
+    const round = await Round.findOne({
+      house: req.params.houseId,
+      status: 'finished',
+      date: { $gte: today, $lt: tomorrow }
+    })
+    .sort({ date: -1 }) // Most recent finished round from today
+    .populate('house');
+
+    if (!round) {
+      return res.status(404).json({
+        success: false,
+        message: 'No finished round found for today'
+      });
+    }
+
+    res.json({
+      success: true,
+      round
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   GET /api/rounds/:id
 // @desc    Get round by ID
 // @access  Public
