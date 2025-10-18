@@ -15,6 +15,11 @@ const roundSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  // Deadline time as string (HH:MM) - for client-side local timezone display
+  deadlineTime: {
+    type: String,
+    required: true
+  },
   // Actual result times (when admin updates results)
   frResultTime: Date,
   srResultTime: Date,

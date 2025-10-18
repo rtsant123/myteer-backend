@@ -3,7 +3,7 @@ const Round = require('../models/Round');
 const House = require('../models/House');
 
 // Helper to parse time string (HH:MM) and combine with date
-// Converts IST time to UTC for storage
+// NO TIMEZONE CONVERSION - Store wall-clock time
 function combineDateAndTime(dateStr, timeStr) {
   const [hours, minutes] = timeStr.split(':').map(Number);
   const date = new Date(dateStr);
@@ -13,11 +13,9 @@ function combineDateAndTime(dateStr, timeStr) {
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
 
-  // Create date at specified IST time (temporarily as UTC)
-  let deadline = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
-  // Convert from IST to UTC by subtracting IST offset (5 hours 30 minutes)
-  // IST = UTC+5:30, so UTC = IST - 5:30
-  deadline = new Date(deadline.getTime() - (5.5 * 60 * 60 * 1000));
+  // Create date at specified time WITHOUT timezone conversion
+  // This represents the wall-clock time (same time in all timezones)
+  const deadline = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
 
   return deadline;
 }
@@ -160,6 +158,7 @@ async function autoCreateRoundForHouse(houseId) {
       house: house._id,
       date: tomorrow,
       deadline,
+      deadlineTime: house.deadlineTime,
       status: 'pending',
       frStatus: 'pending',
       srStatus: 'pending', // Both FR and SR available for betting together
@@ -210,6 +209,7 @@ async function autoCreateRounds() {
           house: house._id,
           date: tomorrow,
           deadline,
+          deadlineTime: house.deadlineTime,
           status: 'pending',
           frStatus: 'pending',
           srStatus: 'pending', // Both FR and SR available for betting together
