@@ -70,16 +70,23 @@ router.post('/', protect, adminOnly, async (req, res) => {
       forecastDirectRate,
       forecastHouseRate,
       forecastEndingRate,
-      frDeadlineTime,
-      srDeadlineTime,
-      forecastDeadlineTime,
-      autoCreateRounds
+      deadlineTime,
+      autoCreateRounds,
+      operatingDays,
+      isActive
     } = req.body;
 
     if (!name) {
       return res.status(400).json({
         success: false,
         message: 'House name is required'
+      });
+    }
+
+    if (!deadlineTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Deadline time is required'
       });
     }
 
@@ -95,10 +102,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
       forecastDirectRate,
       forecastHouseRate,
       forecastEndingRate,
-      frDeadlineTime: frDeadlineTime || '13:00',
-      srDeadlineTime: srDeadlineTime || '17:00',
-      forecastDeadlineTime: forecastDeadlineTime || frDeadlineTime || '13:00',
-      autoCreateRounds: autoCreateRounds !== undefined ? autoCreateRounds : true
+      deadlineTime,
+      autoCreateRounds: autoCreateRounds !== undefined ? autoCreateRounds : true,
+      operatingDays: operatingDays || [1, 2, 3, 4, 5, 6],
+      isActive: isActive !== undefined ? isActive : true
     });
 
     res.status(201).json({
@@ -140,10 +147,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       forecastDirectRate,
       forecastHouseRate,
       forecastEndingRate,
-      frDeadlineTime,
-      srDeadlineTime,
-      forecastDeadlineTime,
+      deadlineTime,
       autoCreateRounds,
+      operatingDays,
       isActive
     } = req.body;
 
@@ -159,10 +165,9 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     if (forecastDirectRate !== undefined) house.forecastDirectRate = forecastDirectRate;
     if (forecastHouseRate !== undefined) house.forecastHouseRate = forecastHouseRate;
     if (forecastEndingRate !== undefined) house.forecastEndingRate = forecastEndingRate;
-    if (frDeadlineTime !== undefined) house.frDeadlineTime = frDeadlineTime;
-    if (srDeadlineTime !== undefined) house.srDeadlineTime = srDeadlineTime;
-    if (forecastDeadlineTime !== undefined) house.forecastDeadlineTime = forecastDeadlineTime;
+    if (deadlineTime !== undefined) house.deadlineTime = deadlineTime;
     if (autoCreateRounds !== undefined) house.autoCreateRounds = autoCreateRounds;
+    if (operatingDays !== undefined) house.operatingDays = operatingDays;
     if (isActive !== undefined) house.isActive = isActive;
 
     await house.save();
