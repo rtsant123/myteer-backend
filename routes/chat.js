@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Chat = require('../models/Chat');
-const authMiddleware = require('../middleware/auth');
-const adminMiddleware = require('../middleware/admin');
+const { protect, adminOnly } = require('../middleware/auth');
 
 // Get or create user's chat
-router.get('/my-chat', authMiddleware, async (req, res) => {
+router.get('/my-chat', protect, async (req, res) => {
   try {
     let chat = await Chat.findOne({ userId: req.user.id, status: 'active' });
 
@@ -29,7 +28,7 @@ router.get('/my-chat', authMiddleware, async (req, res) => {
 });
 
 // Send message (User)
-router.post('/send-message', authMiddleware, async (req, res) => {
+router.post('/send-message', protect, async (req, res) => {
   try {
     const { message } = req.body;
 
@@ -71,7 +70,7 @@ router.post('/send-message', authMiddleware, async (req, res) => {
 });
 
 // Mark messages as read (User)
-router.post('/mark-read', authMiddleware, async (req, res) => {
+router.post('/mark-read', protect, async (req, res) => {
   try {
     const chat = await Chat.findOne({ userId: req.user.id, status: 'active' });
 
@@ -102,7 +101,7 @@ router.post('/mark-read', authMiddleware, async (req, res) => {
 // ===== ADMIN ENDPOINTS =====
 
 // Get all chats (Admin)
-router.get('/admin/all-chats', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/all-chats', protect, adminOnly, async (req, res) => {
   try {
     const { status } = req.query;
 
@@ -123,7 +122,7 @@ router.get('/admin/all-chats', authMiddleware, adminMiddleware, async (req, res)
 });
 
 // Get specific chat (Admin)
-router.get('/admin/chat/:chatId', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/chat/:chatId', protect, adminOnly, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId);
 
@@ -139,7 +138,7 @@ router.get('/admin/chat/:chatId', authMiddleware, adminMiddleware, async (req, r
 });
 
 // Send admin reply
-router.post('/admin/reply/:chatId', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/reply/:chatId', protect, adminOnly, async (req, res) => {
   try {
     const { message } = req.body;
 
@@ -174,7 +173,7 @@ router.post('/admin/reply/:chatId', authMiddleware, adminMiddleware, async (req,
 });
 
 // Mark user messages as read (Admin)
-router.post('/admin/mark-read/:chatId', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/mark-read/:chatId', protect, adminOnly, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId);
 
@@ -205,7 +204,7 @@ router.post('/admin/mark-read/:chatId', authMiddleware, adminMiddleware, async (
 });
 
 // Close chat (Admin)
-router.post('/admin/close/:chatId', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/close/:chatId', protect, adminOnly, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId);
 
@@ -224,7 +223,7 @@ router.post('/admin/close/:chatId', authMiddleware, adminMiddleware, async (req,
 });
 
 // Reopen chat (Admin)
-router.post('/admin/reopen/:chatId', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/reopen/:chatId', protect, adminOnly, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId);
 
@@ -243,7 +242,7 @@ router.post('/admin/reopen/:chatId', authMiddleware, adminMiddleware, async (req
 });
 
 // Get unread chat count (Admin)
-router.get('/admin/unread-count', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/unread-count', protect, adminOnly, async (req, res) => {
   try {
     const count = await Chat.countDocuments({ unreadCount: { $gt: 0 }, status: 'active' });
 
