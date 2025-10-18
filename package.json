@@ -1,6 +1,6 @@
 {
   "name": "myteer-backend",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Teer Betting App Backend API",
   "main": "server.js",
   "scripts": {
