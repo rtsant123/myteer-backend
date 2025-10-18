@@ -131,14 +131,14 @@ router.post('/', protect, adminOnly, async (req, res) => {
     }
 
     // Calculate deadline from house default time if not provided
-    // NO TIMEZONE CONVERSION - Store wall-clock time
+    // Interpret time in Bangkok timezone (UTC+7) for absolute time
     let deadlineDate;
     let deadlineTimeStr = houseExists.deadlineTime; // ALWAYS use house deadline time
 
     if (deadline) {
       deadlineDate = new Date(deadline);
     } else {
-      // Use house default time - store as-is (wall-clock time)
+      // Use house default time in Bangkok timezone (UTC+7)
       const roundDate = new Date(date);
       const [hour, min] = houseExists.deadlineTime.split(':').map(Number);
 
@@ -147,9 +147,14 @@ router.post('/', protect, adminOnly, async (req, res) => {
       const month = roundDate.getUTCMonth();
       const day = roundDate.getUTCDate();
 
-      // Create date at specified time WITHOUT timezone conversion
-      // This represents the wall-clock time (same time in all timezones)
-      deadlineDate = new Date(Date.UTC(year, month, day, hour, min, 0, 0));
+      // Convert Bangkok time (UTC+7) to UTC
+      // If admin sets 15:30 Bangkok time, we need to store 08:30 UTC
+      const bangkokHour = hour;
+      const bangkokMin = min;
+      const utcHour = bangkokHour - 7; // Bangkok is UTC+7
+
+      // Create UTC date (handle hour overflow/underflow)
+      deadlineDate = new Date(Date.UTC(year, month, day, utcHour, bangkokMin, 0, 0));
     }
 
     // Check if round already exists for this house and date

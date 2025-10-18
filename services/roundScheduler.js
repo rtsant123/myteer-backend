@@ -3,9 +3,9 @@ const Round = require('../models/Round');
 const House = require('../models/House');
 
 // Helper to parse time string (HH:MM) and combine with date
-// NO TIMEZONE CONVERSION - Store wall-clock time
+// Convert Bangkok time (UTC+7) to UTC for absolute time
 function combineDateAndTime(dateStr, timeStr) {
-  const [hours, minutes] = timeStr.split(':').map(Number);
+  const [bangkokHour, bangkokMin] = timeStr.split(':').map(Number);
   const date = new Date(dateStr);
 
   // Get UTC date components (date-only strings are parsed as UTC midnight)
@@ -13,9 +13,12 @@ function combineDateAndTime(dateStr, timeStr) {
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
 
-  // Create date at specified time WITHOUT timezone conversion
-  // This represents the wall-clock time (same time in all timezones)
-  const deadline = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+  // Convert Bangkok time (UTC+7) to UTC
+  // If admin sets 15:30 Bangkok time, we need to store 08:30 UTC
+  const utcHour = bangkokHour - 7; // Bangkok is UTC+7
+
+  // Create UTC date (handle hour overflow/underflow with Date constructor)
+  const deadline = new Date(Date.UTC(year, month, day, utcHour, bangkokMin, 0, 0));
 
   return deadline;
 }
