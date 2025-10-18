@@ -26,18 +26,9 @@ router.get('/active/:houseId', async (req, res) => {
     .sort({ date: 1 }) // Oldest first (current day's round)
     .populate('house');
 
-    // Priority 2: If no live round, find PENDING rounds (upcoming, today or future)
-    if (!round) {
-      round = await Round.findOne({
-        house: req.params.houseId,
-        status: 'pending'
-      })
-      .sort({ date: 1 }) // Oldest first (today's round before tomorrow's)
-      .populate('house');
-    }
-
-    // Priority 3: If no pending/live, find FINISHED round from TODAY
-    // This is CRITICAL: We need to show finished rounds so they appear in FINISHED tab!
+    // Priority 2: Find FINISHED round from TODAY
+    // CRITICAL: Show today's results BEFORE tomorrow's upcoming game!
+    // This ensures finished rounds appear in FINISHED tab even when tomorrow's round exists
     if (!round) {
       round = await Round.findOne({
         house: req.params.houseId,
@@ -45,6 +36,16 @@ router.get('/active/:houseId', async (req, res) => {
         date: { $gte: today, $lt: tomorrow }
       })
       .sort({ date: -1 }) // Most recent finished round from today
+      .populate('house');
+    }
+
+    // Priority 3: If no finished round from today, find PENDING rounds (upcoming, today or future)
+    if (!round) {
+      round = await Round.findOne({
+        house: req.params.houseId,
+        status: 'pending'
+      })
+      .sort({ date: 1 }) // Oldest first (today's round before tomorrow's)
       .populate('house');
     }
 
