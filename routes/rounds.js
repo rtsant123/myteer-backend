@@ -133,7 +133,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
     // Calculate deadline from house default time if not provided
     // NO TIMEZONE CONVERSION - Store wall-clock time
     let deadlineDate;
-    let deadlineTimeStr;
+    let deadlineTimeStr = houseExists.deadlineTime; // ALWAYS use house deadline time
 
     if (deadline) {
       deadlineDate = new Date(deadline);
@@ -150,7 +150,6 @@ router.post('/', protect, adminOnly, async (req, res) => {
       // Create date at specified time WITHOUT timezone conversion
       // This represents the wall-clock time (same time in all timezones)
       deadlineDate = new Date(Date.UTC(year, month, day, hour, min, 0, 0));
-      deadlineTimeStr = houseExists.deadlineTime;
     }
 
     // Check if round already exists for this house and date
