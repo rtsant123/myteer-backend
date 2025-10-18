@@ -50,6 +50,7 @@ app.use('/api/withdrawals', require('./routes/withdrawals'));
 app.use('/api/banners', require('./routes/banners'));
 app.use('/api/otp', require('./routes/otp'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/chat', require('./routes/chat'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
