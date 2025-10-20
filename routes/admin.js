@@ -10,6 +10,57 @@ const Withdrawal = require('../models/Withdrawal');
 const PaymentMethod = require('../models/PaymentMethod');
 const User = require('../models/User');
 
+// @route   GET /api/admin/users
+// @desc    Get all users (admin only)
+// @access  Private/Admin
+router.get('/users', protect, adminOnly, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    // Optional filters
+    const filter = {};
+    if (req.query.role) {
+      filter.role = req.query.role;
+    }
+    if (req.query.isActive !== undefined) {
+      filter.isActive = req.query.isActive === 'true';
+    }
+
+    const users = await User.find(filter)
+      .select('-password') // Exclude password field
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
+
+    const total = await User.countDocuments(filter);
+
+    // Calculate summary
+    const summary = {
+      total: total,
+      admins: await User.countDocuments({ role: 'admin' }),
+      activeUsers: await User.countDocuments({ isActive: true }),
+      inactiveUsers: await User.countDocuments({ isActive: false }),
+    };
+
+    res.json({
+      success: true,
+      count: users.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      users,
+      summary
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   GET /api/admin/stats
 // @desc    Get admin statistics
 // @access  Private/Admin

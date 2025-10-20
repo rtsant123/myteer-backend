@@ -6,12 +6,12 @@ const { protect, adminOnly } = require('../middleware/auth');
 // Get or create user's chat
 router.get('/my-chat', protect, async (req, res) => {
   try {
-    let chat = await Chat.findOne({ userId: req.user.id, status: 'active' });
+    let chat = await Chat.findOne({ userId: req.user._id, status: 'active' });
 
     if (!chat) {
       // Create new chat for user
       chat = new Chat({
-        userId: req.user.id,
+        userId: req.user._id,
         userName: req.user.name,
         userEmail: req.user.email,
         messages: [],
@@ -36,12 +36,12 @@ router.post('/send-message', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Message cannot be empty' });
     }
 
-    let chat = await Chat.findOne({ userId: req.user.id, status: 'active' });
+    let chat = await Chat.findOne({ userId: req.user._id, status: 'active' });
 
     if (!chat) {
       // Create new chat
       chat = new Chat({
-        userId: req.user.id,
+        userId: req.user._id,
         userName: req.user.name,
         userEmail: req.user.email,
         messages: [],
@@ -72,7 +72,7 @@ router.post('/send-message', protect, async (req, res) => {
 // Mark messages as read (User)
 router.post('/mark-read', protect, async (req, res) => {
   try {
-    const chat = await Chat.findOne({ userId: req.user.id, status: 'active' });
+    const chat = await Chat.findOne({ userId: req.user._id, status: 'active' });
 
     if (!chat) {
       return res.status(404).json({ success: false, message: 'Chat not found' });

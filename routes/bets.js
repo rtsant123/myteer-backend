@@ -5,7 +5,7 @@ const User = require('../models/User');
 const House = require('../models/House');
 const Round = require('../models/Round');
 const Transaction = require('../models/Transaction');
-const { protect } = require('../middleware/auth');
+const { protect, adminOnly } = require('../middleware/auth');
 
 // @route   POST /api/bets/place
 // @desc    Place bet
@@ -184,6 +184,66 @@ router.post('/place', protect, async (req, res) => {
       message: 'Bet placed successfully',
       bet: populatedBet,
       newBalance: user.balance
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/bets
+// @desc    Get all bets (admin only)
+// @access  Private/Admin
+router.get('/', protect, adminOnly, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    // Optional filters
+    const filter = {};
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+    if (req.query.houseId) {
+      filter.house = req.query.houseId;
+    }
+    if (req.query.roundId) {
+      filter.round = req.query.roundId;
+    }
+
+    const bets = await Bet.find(filter)
+      .populate('user', 'name phone')
+      .populate('house', 'name')
+      .populate('round', 'roundNumber date')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
+
+    const total = await Bet.countDocuments(filter);
+
+    // Calculate summary
+    const summary = await Bet.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$status',
+          total: { $sum: '$totalAmount' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      count: bets.length,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      bets,
+      summary
     });
   } catch (error) {
     res.status(500).json({
