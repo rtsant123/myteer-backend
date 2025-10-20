@@ -34,7 +34,8 @@ const chatSchema = new mongoose.Schema({
   },
   userEmail: {
     type: String,
-    required: true
+    required: false,
+    default: ''
   },
   messages: [messageSchema],
   status: {

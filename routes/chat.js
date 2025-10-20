@@ -12,8 +12,8 @@ router.get('/my-chat', protect, async (req, res) => {
       // Create new chat for user
       chat = new Chat({
         userId: req.user._id,
-        userName: req.user.name,
-        userEmail: req.user.email,
+        userName: req.user.name || 'User',
+        userEmail: req.user.email || '',
         messages: [],
         status: 'active'
       });
@@ -42,8 +42,8 @@ router.post('/send-message', protect, async (req, res) => {
       // Create new chat
       chat = new Chat({
         userId: req.user._id,
-        userName: req.user.name,
-        userEmail: req.user.email,
+        userName: req.user.name || 'User',
+        userEmail: req.user.email || '',
         messages: [],
         status: 'active'
       });
