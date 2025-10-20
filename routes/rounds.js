@@ -78,6 +78,53 @@ router.get('/active/:houseId', async (req, res) => {
   }
 });
 
+// @route   GET /api/rounds/history/:houseId
+// @desc    Get ALL finished rounds for house (with pagination for history)
+// @access  Public
+router.get('/history/:houseId', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    // Find ALL FINISHED rounds for this house, sorted by date (newest first)
+    const rounds = await Round.find({
+      house: req.params.houseId,
+      status: 'finished',
+      $and: [
+        { frResult: { $exists: true, $ne: null } },
+        { srResult: { $exists: true, $ne: null } }
+      ]
+    })
+    .sort({ date: -1 }) // Newest first
+    .limit(limit)
+    .skip(skip)
+    .populate('house');
+
+    const total = await Round.countDocuments({
+      house: req.params.houseId,
+      status: 'finished',
+      $and: [
+        { frResult: { $exists: true, $ne: null } },
+        { srResult: { $exists: true, $ne: null } }
+      ]
+    });
+
+    res.json({
+      success: true,
+      rounds,
+      total,
+      page,
+      pages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   GET /api/rounds/finished/:houseId
 // @desc    Get finished round from today for house (for FINISHED tab)
 // @access  Public
