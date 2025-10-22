@@ -7,6 +7,97 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { protect, adminOnly } = require('../middleware/auth');
 
+// Helper function to dynamically update round status based on current time
+async function updateRoundStatus(round) {
+  if (!round) return round;
+
+  const now = new Date();
+  const deadlinePassed = now >= round.deadline;
+  let statusChanged = false;
+
+  // Update FR status
+  if (round.frResult !== undefined && round.frResult !== null) {
+    if (round.frStatus !== 'finished') {
+      round.frStatus = 'finished';
+      statusChanged = true;
+    }
+  } else if (deadlinePassed) {
+    if (round.frStatus !== 'live') {
+      round.frStatus = 'live';
+      statusChanged = true;
+    }
+  } else {
+    if (round.frStatus !== 'pending') {
+      round.frStatus = 'pending';
+      statusChanged = true;
+    }
+  }
+
+  // Update SR status
+  if (round.srResult !== undefined && round.srResult !== null) {
+    if (round.srStatus !== 'finished') {
+      round.srStatus = 'finished';
+      statusChanged = true;
+    }
+  } else if (deadlinePassed) {
+    if (round.srStatus !== 'live') {
+      round.srStatus = 'live';
+      statusChanged = true;
+    }
+  } else {
+    if (round.srStatus !== 'pending') {
+      round.srStatus = 'pending';
+      statusChanged = true;
+    }
+  }
+
+  // Update Forecast status (finished only when both FR and SR have results)
+  if (round.frResult !== undefined && round.frResult !== null &&
+      round.srResult !== undefined && round.srResult !== null) {
+    if (round.forecastStatus !== 'finished') {
+      round.forecastStatus = 'finished';
+      statusChanged = true;
+    }
+  } else if (deadlinePassed) {
+    if (round.forecastStatus !== 'live') {
+      round.forecastStatus = 'live';
+      statusChanged = true;
+    }
+  } else {
+    if (round.forecastStatus !== 'pending') {
+      round.forecastStatus = 'pending';
+      statusChanged = true;
+    }
+  }
+
+  // Update overall round status
+  if (round.frResult !== undefined && round.frResult !== null &&
+      round.srResult !== undefined && round.srResult !== null) {
+    if (round.status !== 'finished') {
+      round.status = 'finished';
+      statusChanged = true;
+    }
+  } else if (deadlinePassed) {
+    if (round.status !== 'live') {
+      round.status = 'live';
+      statusChanged = true;
+    }
+  } else {
+    if (round.status !== 'pending') {
+      round.status = 'pending';
+      statusChanged = true;
+    }
+  }
+
+  // Save changes to database if status changed
+  if (statusChanged) {
+    await round.save();
+    console.log(`✅ Updated round ${round._id} status to: ${round.status} (FR: ${round.frStatus}, SR: ${round.srStatus}, Forecast: ${round.forecastStatus})`);
+  }
+
+  return round;
+}
+
 // @route   GET /api/rounds/active/:houseId
 // @desc    Get active round for house (or today's finished round)
 // @access  Public
@@ -66,6 +157,9 @@ router.get('/active/:houseId', async (req, res) => {
       });
     }
 
+    // Update round status based on current time before returning
+    await updateRoundStatus(round);
+
     res.json({
       success: true,
       round
@@ -110,6 +204,11 @@ router.get('/history/:houseId', async (req, res) => {
       ]
     });
 
+    // Update status for each round before returning
+    for (const round of rounds) {
+      await updateRoundStatus(round);
+    }
+
     res.json({
       success: true,
       rounds,
@@ -151,6 +250,9 @@ router.get('/finished/:houseId', async (req, res) => {
       });
     }
 
+    // Update round status based on current time before returning
+    await updateRoundStatus(round);
+
     res.json({
       success: true,
       round
@@ -176,6 +278,9 @@ router.get('/:id', async (req, res) => {
         message: 'Round not found'
       });
     }
+
+    // Update round status based on current time before returning
+    await updateRoundStatus(round);
 
     res.json({
       success: true,
