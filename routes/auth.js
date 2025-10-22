@@ -12,6 +12,28 @@ const generateToken = (id) => {
   return jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
 };
 
+// Normalize phone number for international support
+// Keeps country code, removes spaces/dashes/parentheses, removes + sign for storage
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+
+  // Convert to string and trim
+  phone = phone.toString().trim();
+
+  // Remove spaces, dashes, and parentheses
+  phone = phone.replace(/[\s\-\(\)]/g, '');
+
+  // Remove + sign (we store without it, but keep the country code)
+  phone = phone.replace('+', '');
+
+  // Legacy support: If it's a 10-digit number without country code, assume Indian
+  if (phone.length === 10 && /^[6-9][0-9]{9}$/.test(phone)) {
+    phone = '91' + phone;
+  }
+
+  return phone;
+};
+
 // @route   POST /api/auth/register
 // @desc    Register user
 // @access  Public
@@ -27,14 +49,8 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     // Verify OTP (unless in development mode without OTP)
     if (otp) {
@@ -102,14 +118,8 @@ router.post('/login', async (req, res) => {
   try {
     let { phone, password } = req.body;
 
-    // Normalize phone number (same as registration)
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     console.log(`🔐 Login attempt for phone: ${phone}`);
 
@@ -215,14 +225,8 @@ router.delete('/user/:phone', async (req, res) => {
   try {
     let { phone } = req.params;
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     // Find and delete user
     const user = await User.findOneAndDelete({ phone });
@@ -260,14 +264,8 @@ router.post('/forgot-password', async (req, res) => {
       });
     }
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     // Check if user exists
     const user = await User.findOne({ phone });
@@ -315,14 +313,8 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     // Verify OTP
     const otpResult = verifyOTP(phone, otp);
@@ -373,14 +365,8 @@ router.post('/create-first-admin', async (req, res) => {
       });
     }
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     // Check if user already exists
     const userExists = await User.findOne({ phone });
@@ -431,14 +417,8 @@ router.post('/make-admin/:phone', async (req, res) => {
   try {
     let { phone } = req.params;
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     const user = await User.findOne({ phone });
     if (!user) {
@@ -470,14 +450,8 @@ router.post('/remove-admin/:phone', async (req, res) => {
   try {
     let { phone } = req.params;
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     const user = await User.findOne({ phone });
     if (!user) {

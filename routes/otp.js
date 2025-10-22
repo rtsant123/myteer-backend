@@ -2,6 +2,28 @@ const express = require('express');
 const router = express.Router();
 const { sendOTP, verifyOTP, resendOTP } = require('../utils/otpService');
 
+// Normalize phone number for international support
+// Keeps country code, removes spaces/dashes/parentheses, removes + sign for storage
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+
+  // Convert to string and trim
+  phone = phone.toString().trim();
+
+  // Remove spaces, dashes, and parentheses
+  phone = phone.replace(/[\s\-\(\)]/g, '');
+
+  // Remove + sign (we store without it, but keep the country code)
+  phone = phone.replace('+', '');
+
+  // Legacy support: If it's a 10-digit number without country code, assume Indian
+  if (phone.length === 10 && /^[6-9][0-9]{9}$/.test(phone)) {
+    phone = '91' + phone;
+  }
+
+  return phone;
+};
+
 // @route   POST /api/otp/send
 // @desc    Send OTP to phone number
 // @access  Public
@@ -16,22 +38,8 @@ router.post('/send', async (req, res) => {
       });
     }
 
-    // Validate phone number format
-    phone = phone.toString().trim();
-
-    // Remove any spaces, dashes, or special characters
-    phone = phone.replace(/[\s\-\(\)]/g, '');
-
-    // Add country code if not present (assuming India +91)
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      // If it's 10 digits, assume India
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-
-    // Remove + if present
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     // Validate final format (should be like 919876543210)
     if (phone.length < 10 || phone.length > 15) {
@@ -79,14 +87,8 @@ router.post('/verify', async (req, res) => {
       });
     }
 
-    // Normalize phone number (same as send)
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     // Validate OTP format
     otp = otp.toString().trim();
@@ -135,14 +137,8 @@ router.post('/resend', async (req, res) => {
       });
     }
 
-    // Normalize phone number
-    phone = phone.toString().trim().replace(/[\s\-\(\)]/g, '');
-    if (!phone.startsWith('91') && !phone.startsWith('+91')) {
-      if (phone.length === 10) {
-        phone = '91' + phone;
-      }
-    }
-    phone = phone.replace('+', '');
+    // Normalize phone number (supports international numbers)
+    phone = normalizePhone(phone);
 
     console.log(`🔄 Resending OTP to: ${phone}`);
 
