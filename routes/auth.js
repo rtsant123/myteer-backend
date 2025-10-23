@@ -4,14 +4,15 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Referral = require('../models/Referral');
 const Transaction = require('../models/Transaction');
+const Settings = require('../models/Settings');
 const { protect } = require('../middleware/auth');
 const { verifyOTP } = require('../utils/otpService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_change_this';
 
-// Referral bonus amounts (configurable)
-const REFERRER_BONUS = 50; // Bonus for the person who referred
-const REFERRED_BONUS = 30; // Bonus for the person who signed up with referral code
+// Default referral bonus amounts (used if not set in database)
+const DEFAULT_REFERRER_BONUS = 50;
+const DEFAULT_REFERRED_BONUS = 30;
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -107,9 +108,19 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    // Check if referral system is enabled
+    const referralEnabled = await Settings.get('referral_enabled', true);
+
     // Validate referral code if provided
     let referrer = null;
     if (referralCode) {
+      if (!referralEnabled) {
+        return res.status(400).json({
+          success: false,
+          message: 'Referral system is currently disabled'
+        });
+      }
+
       referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
       if (!referrer) {
         return res.status(400).json({
@@ -120,6 +131,10 @@ router.post('/register', async (req, res) => {
       console.log(`✅ Valid referral code: ${referralCode} from user ${referrer.phone}`);
     }
 
+    // Get referral bonus amounts from database settings
+    const referrerBonus = await Settings.get('referrer_bonus', DEFAULT_REFERRER_BONUS);
+    const referredBonus = await Settings.get('referred_bonus', DEFAULT_REFERRED_BONUS);
+
     // Generate unique referral code for new user
     const newUserReferralCode = await generateReferralCode();
 
@@ -129,32 +144,32 @@ router.post('/register', async (req, res) => {
       password,
       name: name || '',
       email: email || '',
-      balance: referrer ? REFERRED_BONUS : 0, // Signup bonus if referred
+      balance: (referrer && referralEnabled) ? referredBonus : 0, // Signup bonus if referred
       referralCode: newUserReferralCode,
       referredBy: referrer ? referrer._id : null
     });
 
-    // If user was referred, create referral tracking and award referrer
-    if (referrer) {
+    // If user was referred and referral system is enabled, create tracking and award bonuses
+    if (referrer && referralEnabled) {
       // Create referral record
       await Referral.create({
         referrer: referrer._id,
         referred: user._id,
         referralCode: referralCode.toUpperCase(),
-        rewardAmount: REFERRER_BONUS,
+        rewardAmount: referrerBonus,
         status: 'completed'
       });
 
       // Award bonus to referrer
       const referrerOldBalance = referrer.balance;
-      referrer.balance += REFERRER_BONUS;
+      referrer.balance += referrerBonus;
       await referrer.save();
 
       // Create transaction for referrer
       await Transaction.create({
         user: referrer._id,
         type: 'deposit',
-        amount: REFERRER_BONUS,
+        amount: referrerBonus,
         balanceBefore: referrerOldBalance,
         balanceAfter: referrer.balance,
         description: `Referral bonus for inviting ${user.phone}`,
@@ -165,14 +180,14 @@ router.post('/register', async (req, res) => {
       await Transaction.create({
         user: user._id,
         type: 'deposit',
-        amount: REFERRED_BONUS,
+        amount: referredBonus,
         balanceBefore: 0,
         balanceAfter: user.balance,
         description: `Signup bonus for using referral code ${referralCode}`,
         status: 'completed'
       });
 
-      console.log(`✅ Referral bonuses awarded: ₹${REFERRER_BONUS} to referrer, ₹${REFERRED_BONUS} to new user`);
+      console.log(`✅ Referral bonuses awarded: ₹${referrerBonus} to referrer, ₹${referredBonus} to new user`);
     }
 
     const token = generateToken(user._id);

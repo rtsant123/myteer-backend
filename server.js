@@ -52,6 +52,8 @@ app.use('/api/otp', require('./routes/otp'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/settings', require('./routes/settings'));
+app.use('/api/referrals', require('./routes/referrals'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
