@@ -3,7 +3,7 @@ const router = express.Router();
 const Settings = require('../models/Settings');
 const Referral = require('../models/Referral');
 const User = require('../models/User');
-const { protect, admin } = require('../middleware/auth');
+const { protect, adminOnly } = require('../middleware/auth');
 
 // Default referral configuration
 const DEFAULT_CONFIG = {
@@ -18,7 +18,7 @@ const DEFAULT_CONFIG = {
 // @route   GET /api/referrals/config
 // @desc    Get referral configuration (admin only)
 // @access  Private/Admin
-router.get('/config', protect, admin, async (req, res) => {
+router.get('/config', protect, adminOnly, async (req, res) => {
   try {
     const config = {
       signupBonusReferrer: await Settings.get('referral_signup_bonus_referrer', DEFAULT_CONFIG.signupBonusReferrer),
@@ -45,7 +45,7 @@ router.get('/config', protect, admin, async (req, res) => {
 // @route   PUT /api/referrals/config
 // @desc    Update referral configuration (admin only)
 // @access  Private/Admin
-router.put('/config', protect, admin, async (req, res) => {
+router.put('/config', protect, adminOnly, async (req, res) => {
   try {
     const {
       signupBonusReferrer,
@@ -219,7 +219,7 @@ router.get('/my-referrals', protect, async (req, res) => {
 // @route   GET /api/referrals/admin-stats
 // @desc    Get all referral statistics (admin only)
 // @access  Private/Admin
-router.get('/admin-stats', protect, admin, async (req, res) => {
+router.get('/admin-stats', protect, adminOnly, async (req, res) => {
   try {
     const totalReferrals = await Referral.countDocuments();
 
