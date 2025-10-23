@@ -2,10 +2,16 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Referral = require('../models/Referral');
+const Transaction = require('../models/Transaction');
 const { protect } = require('../middleware/auth');
 const { verifyOTP } = require('../utils/otpService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_change_this';
+
+// Referral bonus amounts (configurable)
+const REFERRER_BONUS = 50; // Bonus for the person who referred
+const REFERRED_BONUS = 30; // Bonus for the person who signed up with referral code
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -34,12 +40,31 @@ const normalizePhone = (phone) => {
   return phone;
 };
 
+// Generate unique referral code
+const generateReferralCode = async () => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code;
+  let exists = true;
+
+  while (exists) {
+    code = '';
+    for (let i = 0; i < 6; i++) {
+      code += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    // Check if code already exists
+    const existingUser = await User.findOne({ referralCode: code });
+    exists = !!existingUser;
+  }
+
+  return code;
+};
+
 // @route   POST /api/auth/register
-// @desc    Register user
+// @desc    Register user with optional referral code
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    let { phone, password, name, otp } = req.body;
+    let { phone, password, name, email, otp, referralCode } = req.body;
 
     // Validate inputs
     if (!phone || !password) {
@@ -82,13 +107,73 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create user
+    // Validate referral code if provided
+    let referrer = null;
+    if (referralCode) {
+      referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
+      if (!referrer) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid referral code'
+        });
+      }
+      console.log(`✅ Valid referral code: ${referralCode} from user ${referrer.phone}`);
+    }
+
+    // Generate unique referral code for new user
+    const newUserReferralCode = await generateReferralCode();
+
+    // Create user with referral tracking
     const user = await User.create({
       phone,
       password,
       name: name || '',
-      balance: 0 // No initial bonus - admin controls bonuses
+      email: email || '',
+      balance: referrer ? REFERRED_BONUS : 0, // Signup bonus if referred
+      referralCode: newUserReferralCode,
+      referredBy: referrer ? referrer._id : null
     });
+
+    // If user was referred, create referral tracking and award referrer
+    if (referrer) {
+      // Create referral record
+      await Referral.create({
+        referrer: referrer._id,
+        referred: user._id,
+        referralCode: referralCode.toUpperCase(),
+        rewardAmount: REFERRER_BONUS,
+        status: 'completed'
+      });
+
+      // Award bonus to referrer
+      const referrerOldBalance = referrer.balance;
+      referrer.balance += REFERRER_BONUS;
+      await referrer.save();
+
+      // Create transaction for referrer
+      await Transaction.create({
+        user: referrer._id,
+        type: 'deposit',
+        amount: REFERRER_BONUS,
+        balanceBefore: referrerOldBalance,
+        balanceAfter: referrer.balance,
+        description: `Referral bonus for inviting ${user.phone}`,
+        status: 'completed'
+      });
+
+      // Create transaction for new user (signup bonus)
+      await Transaction.create({
+        user: user._id,
+        type: 'deposit',
+        amount: REFERRED_BONUS,
+        balanceBefore: 0,
+        balanceAfter: user.balance,
+        description: `Signup bonus for using referral code ${referralCode}`,
+        status: 'completed'
+      });
+
+      console.log(`✅ Referral bonuses awarded: ₹${REFERRER_BONUS} to referrer, ₹${REFERRED_BONUS} to new user`);
+    }
 
     const token = generateToken(user._id);
 
@@ -99,11 +184,14 @@ router.post('/register', async (req, res) => {
         id: user._id,
         phone: user.phone,
         name: user.name,
+        email: user.email,
         balance: user.balance,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        referralCode: user.referralCode
       }
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -141,6 +229,13 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Generate referral code for existing users who don't have one
+    if (!user.referralCode) {
+      user.referralCode = await generateReferralCode();
+      await user.save();
+      console.log(`✅ Generated referral code for existing user: ${user.referralCode}`);
+    }
+
     const token = generateToken(user._id);
 
     res.json({
@@ -150,8 +245,10 @@ router.post('/login', async (req, res) => {
         id: user._id,
         phone: user.phone,
         name: user.name,
+        email: user.email,
         balance: user.balance,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        referralCode: user.referralCode
       }
     });
   } catch (error) {

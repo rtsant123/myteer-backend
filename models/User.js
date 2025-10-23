@@ -31,6 +31,16 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true  // Allows null values to not conflict with unique constraint
+  },
+  referredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   }
 }, {
   timestamps: true
