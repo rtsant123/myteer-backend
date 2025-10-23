@@ -594,7 +594,7 @@ async function calculateWinners(round) {
             // Create win transaction
             await Transaction.create({
               user: user._id,
-              type: 'bet_won',
+              type: 'win',
               amount: totalWinAmount,
               balanceBefore,
               balanceAfter: user.balance,

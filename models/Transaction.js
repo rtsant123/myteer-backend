@@ -11,12 +11,9 @@ const transactionSchema = new mongoose.Schema({
     enum: [
       'deposit',
       'withdrawal',
-      'withdrawal_pending',
-      'withdrawal_approved',
-      'withdrawal_refund',
-      'bet_placed',
-      'bet_won',
-      'bet_lost'
+      'bet',  // Changed from 'bet_placed' to match frontend
+      'win',  // Changed from 'bet_won' to match frontend
+      'refund'  // For bet refunds
     ],
     required: true
   },
