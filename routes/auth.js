@@ -108,8 +108,19 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if referral system is enabled
-    const referralEnabled = await Settings.get('referral_enabled', true);
+    // Check if referral system is enabled (backwards compatible)
+    let referralEnabled = true;
+    let referrerBonus = DEFAULT_REFERRER_BONUS;
+    let referredBonus = DEFAULT_REFERRED_BONUS;
+
+    try {
+      referralEnabled = await Settings.get('referral_enabled', true);
+      referrerBonus = await Settings.get('referrer_bonus', DEFAULT_REFERRER_BONUS);
+      referredBonus = await Settings.get('referred_bonus', DEFAULT_REFERRED_BONUS);
+    } catch (error) {
+      // Use defaults if Settings model doesn't exist (backwards compatibility)
+      console.log(`⚠️ Using default referral settings: ${error.message}`);
+    }
 
     // Validate referral code if provided
     let referrer = null;
@@ -130,10 +141,6 @@ router.post('/register', async (req, res) => {
       }
       console.log(`✅ Valid referral code: ${referralCode} from user ${referrer.phone}`);
     }
-
-    // Get referral bonus amounts from database settings
-    const referrerBonus = await Settings.get('referrer_bonus', DEFAULT_REFERRER_BONUS);
-    const referredBonus = await Settings.get('referred_bonus', DEFAULT_REFERRED_BONUS);
 
     // Generate unique referral code for new user
     const newUserReferralCode = await generateReferralCode();
@@ -244,11 +251,16 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Generate referral code for existing users who don't have one
-    if (!user.referralCode) {
-      user.referralCode = await generateReferralCode();
-      await user.save();
-      console.log(`✅ Generated referral code for existing user: ${user.referralCode}`);
+    // Generate referral code for existing users who don't have one (backwards compatible)
+    try {
+      if (!user.referralCode) {
+        user.referralCode = await generateReferralCode();
+        await user.save();
+        console.log(`✅ Generated referral code for existing user: ${user.referralCode}`);
+      }
+    } catch (error) {
+      // Ignore error if referralCode field doesn't exist (backwards compatibility)
+      console.log(`⚠️ Could not generate referral code (field may not exist): ${error.message}`);
     }
 
     const token = generateToken(user._id);
