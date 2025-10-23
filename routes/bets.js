@@ -166,7 +166,7 @@ router.post('/place', protect, async (req, res) => {
     // Create transaction
     await Transaction.create({
       user: req.user._id,
-      type: 'bet_placed',
+      type: 'bet',
       amount: -totalAmount,
       balanceBefore,
       balanceAfter: user.balance,
