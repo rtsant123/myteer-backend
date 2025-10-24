@@ -55,6 +55,7 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
+app.use('/api/app-version', require('./routes/appVersion'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
