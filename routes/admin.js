@@ -108,6 +108,126 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/analytics
+// @desc    Get comprehensive admin analytics
+// @access  Private/Admin
+router.get('/analytics', protect, adminOnly, async (req, res) => {
+  try {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Total counts
+    const totalUsers = await User.countDocuments();
+    const activeBets = await Bet.countDocuments({ status: 'pending' });
+    const pendingWithdrawals = await Withdrawal.countDocuments({ status: 'pending' });
+
+    // Revenue calculations
+    const [
+      depositStats,
+      betStats,
+      winStats,
+      withdrawalStats,
+      todayDepositStats,
+      todayBetStats
+    ] = await Promise.all([
+      Deposit.aggregate([
+        { $match: { status: 'approved' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      Bet.aggregate([
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      Bet.aggregate([
+        { $match: { status: 'won' } },
+        { $group: { _id: null, total: { $sum: '$totalWinAmount' } } }
+      ]),
+      Withdrawal.aggregate([
+        { $match: { status: 'approved' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      Deposit.aggregate([
+        { $match: { status: 'approved', createdAt: { $gte: todayStart } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      Bet.aggregate([
+        { $match: { createdAt: { $gte: todayStart } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' }, count: { $sum: 1 } } }
+      ])
+    ]);
+
+    const totalDeposits = depositStats[0]?.total || 0;
+    const totalBetsPlaced = betStats[0]?.total || 0;
+    const totalWinnings = winStats[0]?.total || 0;
+    const totalWithdrawals = withdrawalStats[0]?.total || 0;
+    const totalRevenue = totalDeposits + totalBetsPlaced - totalWinnings - totalWithdrawals;
+
+    // Today's stats
+    const todayRevenue = todayDepositStats[0]?.total || 0;
+    const todayBets = todayBetStats[0]?.count || 0;
+    const todayNewUsers = await User.countDocuments({ createdAt: { $gte: todayStart } });
+    const todayActiveUsers = await Bet.distinct('user', { createdAt: { $gte: todayStart } }).then(users => users.length);
+
+    // User statistics
+    const activeUsers7Days = await Bet.distinct('user', { createdAt: { $gte: sevenDaysAgo } }).then(users => users.length);
+    const inactiveUsers = totalUsers - activeUsers7Days;
+    const avgBetsPerUser = totalUsers > 0 ? (await Bet.countDocuments()) / totalUsers : 0;
+
+    // House performance
+    const houses = await House.find();
+    const housePerformance = await Promise.all(
+      houses.map(async (house) => {
+        const houseBets = await Bet.aggregate([
+          { $match: { house: house._id } },
+          { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$totalAmount' } } }
+        ]);
+
+        return {
+          id: house._id,
+          name: house.name,
+          totalBets: houseBets[0]?.count || 0,
+          revenue: houseBets[0]?.revenue || 0
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      // Overview
+      totalRevenue,
+      totalUsers,
+      activeBets,
+      pendingWithdrawals,
+
+      // Today's performance
+      todayRevenue,
+      todayBets,
+      todayNewUsers,
+      todayActiveUsers,
+
+      // Revenue breakdown
+      totalDeposits,
+      totalBetsPlaced,
+      totalWinnings,
+      totalWithdrawals,
+
+      // User statistics
+      activeUsers7Days,
+      inactiveUsers,
+      avgBetsPerUser,
+
+      // House performance
+      housePerformance: housePerformance.sort((a, b) => b.revenue - a.revenue)
+    });
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   POST /api/admin/cleanup
 // @desc    Clean database (remove all game data, keep users)
 // @access  Private/Admin

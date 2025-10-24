@@ -4,6 +4,9 @@ node_modules/
 # Environment variables
 .env
 
+# Firebase Admin Service Account (NEVER COMMIT THIS!)
+firebase-service-account.json
+
 # Logs
 *.log
 npm-debug.log*

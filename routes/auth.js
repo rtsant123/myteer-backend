@@ -600,4 +600,60 @@ router.post('/remove-admin/:phone', async (req, res) => {
   }
 });
 
+// @route   POST /api/auth/fcm-token
+// @desc    Save FCM token for push notifications
+// @access  Private
+router.post('/fcm-token', protect, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+
+    if (!fcmToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'FCM token is required'
+      });
+    }
+
+    // Update user's FCM token
+    await User.findByIdAndUpdate(req.user._id, {
+      fcmToken: fcmToken
+    });
+
+    console.log(`📱 FCM token saved for user: ${req.user.name || req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'FCM token saved successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/auth/fcm-token
+// @desc    Delete FCM token (for logout)
+// @access  Private
+router.delete('/fcm-token', protect, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      fcmToken: null
+    });
+
+    console.log(`🗑️  FCM token deleted for user: ${req.user.name || req.user.phone}`);
+
+    res.json({
+      success: true,
+      message: 'FCM token deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

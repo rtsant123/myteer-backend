@@ -54,6 +54,7 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/referrals', require('./routes/referrals'));
+app.use('/api/leaderboard', require('./routes/leaderboard'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
