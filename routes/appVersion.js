@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Settings = require('../models/Settings');
-const { adminOnly } = require('../middleware/auth');
+const { protect, adminOnly } = require('../middleware/auth');
 
 // Public endpoint - Check for app updates
 router.get('/check', async (req, res) => {
@@ -43,7 +43,7 @@ router.get('/check', async (req, res) => {
 });
 
 // Admin endpoint - Get version settings
-router.get('/settings', adminOnly, async (req, res) => {
+router.get('/settings', protect, adminOnly, async (req, res) => {
   try {
     const latestVersion = await Settings.get('app_version_latest', '1.0.2');
     const updateMessage = await Settings.get('app_version_message', 'A new version is available!');
@@ -69,7 +69,7 @@ router.get('/settings', adminOnly, async (req, res) => {
 });
 
 // Admin endpoint - Update version settings
-router.put('/settings', adminOnly, async (req, res) => {
+router.put('/settings', protect, adminOnly, async (req, res) => {
   try {
     const { latestVersion, updateMessage, isMandatory, downloadUrl } = req.body;
 
