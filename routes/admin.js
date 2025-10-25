@@ -407,4 +407,76 @@ router.post('/cleanup', protect, adminOnly, async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/create-admin
+// @desc    Create a new admin user
+// @access  Private/Admin (requires canManageUsers permission)
+router.post('/create-admin', protect, requirePermission('canManageUsers'), async (req, res) => {
+  try {
+    const { phone, password, name, email } = req.body;
+
+    // Validation
+    if (!phone || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone and password are required'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ phone });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this phone number already exists'
+      });
+    }
+
+    // Hash password
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create admin user with full permissions
+    const newAdmin = new User({
+      phone,
+      password: hashedPassword,
+      name: name || '',
+      email: email || '',
+      isAdmin: true,
+      isActive: true,
+      balance: 0,
+      permissions: {
+        canUpdateResults: true,
+        canApprovePayments: true,
+        canCreateRounds: true,
+        canCreateHouses: true,
+        canAccessAnalytics: true,
+        canAccessChatSupport: true,
+        canManageUsers: true,
+        canManageAppVersion: true
+      }
+    });
+
+    await newAdmin.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Admin user created successfully',
+      admin: {
+        _id: newAdmin._id,
+        phone: newAdmin.phone,
+        name: newAdmin.name,
+        email: newAdmin.email,
+        isAdmin: newAdmin.isAdmin,
+        permissions: newAdmin.permissions
+      }
+    });
+  } catch (error) {
+    console.error('Create admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
