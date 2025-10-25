@@ -182,6 +182,24 @@ router.get('/code', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/referrals/my-code
+// @desc    Get user's referral code (alias for /code)
+// @access  Private
+router.get('/my-code', protect, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      referralCode: req.user.referralCode,
+      code: req.user.referralCode  // Also include as 'code' for compatibility
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // @route   GET /api/referrals/my-referrals
 // @desc    Get list of users referred by current user
 // @access  Private
