@@ -45,6 +45,40 @@ const userSchema = new mongoose.Schema({
   fcmToken: {
     type: String,
     default: null
+  },
+  permissions: {
+    canUpdateResults: {
+      type: Boolean,
+      default: true  // Default full permissions for existing admins
+    },
+    canApprovePayments: {
+      type: Boolean,
+      default: true
+    },
+    canCreateRounds: {
+      type: Boolean,
+      default: true
+    },
+    canCreateHouses: {
+      type: Boolean,
+      default: true
+    },
+    canAccessAnalytics: {
+      type: Boolean,
+      default: true
+    },
+    canAccessChatSupport: {
+      type: Boolean,
+      default: true
+    },
+    canManageUsers: {
+      type: Boolean,
+      default: true
+    },
+    canManageAppVersion: {
+      type: Boolean,
+      default: true
+    }
   }
 }, {
   timestamps: true

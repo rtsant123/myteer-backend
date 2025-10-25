@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, requirePermission } = require('../middleware/auth');
 const House = require('../models/House');
 const Round = require('../models/Round');
 const Bet = require('../models/Bet');
@@ -12,8 +12,8 @@ const User = require('../models/User');
 
 // @route   GET /api/admin/users
 // @desc    Get all users (admin only)
-// @access  Private/Admin
-router.get('/users', protect, adminOnly, async (req, res) => {
+// @access  Private/Admin (requires canManageUsers permission)
+router.get('/users', protect, requirePermission('canManageUsers'), async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
@@ -39,7 +39,7 @@ router.get('/users', protect, adminOnly, async (req, res) => {
     // Calculate summary
     const summary = {
       total: total,
-      admins: await User.countDocuments({ role: 'admin' }),
+      admins: await User.countDocuments({ isAdmin: true }),
       activeUsers: await User.countDocuments({ isActive: true }),
       inactiveUsers: await User.countDocuments({ isActive: false }),
     };
@@ -54,6 +54,107 @@ router.get('/users', protect, adminOnly, async (req, res) => {
       summary
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   PATCH /api/admin/users/:userId/permissions
+// @desc    Update admin user permissions
+// @access  Private/Admin (requires canManageUsers permission)
+router.patch('/users/:userId/permissions', protect, adminOnly, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { permissions } = req.body;
+
+    // Validate userId
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Validate permissions object
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Permissions object is required'
+      });
+    }
+
+    // Check if the requesting admin has permission to manage users
+    // Super admins (no permissions object or all permissions) can manage any admin
+    const isSuperAdmin = !req.user.permissions ||
+                         Object.values(req.user.permissions).every(p => p === true);
+
+    if (!isSuperAdmin && (!req.user.permissions || !req.user.permissions.canManageUsers)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Permission denied: canManageUsers required'
+      });
+    }
+
+    // Find the target user
+    const user = await User.findById(userId).select('-password');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Ensure target user is an admin
+    if (!user.isAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Permissions can only be updated for admin users'
+      });
+    }
+
+    // Validate permission keys
+    const validPermissions = [
+      'canUpdateResults',
+      'canApprovePayments',
+      'canCreateRounds',
+      'canCreateHouses',
+      'canAccessAnalytics',
+      'canAccessChatSupport',
+      'canManageUsers',
+      'canManageAppVersion'
+    ];
+
+    const invalidKeys = Object.keys(permissions).filter(key => !validPermissions.includes(key));
+    if (invalidKeys.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid permission keys: ${invalidKeys.join(', ')}`
+      });
+    }
+
+    // Update permissions
+    user.permissions = {
+      ...user.permissions,
+      ...permissions
+    };
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Permissions updated successfully',
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        permissions: user.permissions
+      }
+    });
+  } catch (error) {
+    console.error('Update permissions error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -110,8 +211,8 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
 
 // @route   GET /api/admin/analytics
 // @desc    Get comprehensive admin analytics
-// @access  Private/Admin
-router.get('/analytics', protect, adminOnly, async (req, res) => {
+// @access  Private/Admin (requires canAccessAnalytics permission)
+router.get('/analytics', protect, requirePermission('canAccessAnalytics'), async (req, res) => {
   try {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());

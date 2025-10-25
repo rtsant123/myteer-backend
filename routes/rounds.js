@@ -5,7 +5,7 @@ const House = require('../models/House');
 const Bet = require('../models/Bet');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, requirePermission } = require('../middleware/auth');
 
 // Helper function to dynamically update round status based on current time
 async function updateRoundStatus(round) {
@@ -411,8 +411,8 @@ router.post('/', protect, adminOnly, async (req, res) => {
 
 // @route   PUT /api/rounds/:id/result
 // @desc    Update round results and calculate winners
-// @access  Private/Admin
-router.put('/:id/result', protect, adminOnly, async (req, res) => {
+// @access  Private/Admin (requires canUpdateResults permission)
+router.put('/:id/result', protect, requirePermission('canUpdateResults'), async (req, res) => {
   try {
     const round = await Round.findById(req.params.id).populate('house');
 

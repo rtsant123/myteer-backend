@@ -57,3 +57,26 @@ exports.adminOnly = (req, res, next) => {
   }
   next();
 };
+
+// Permission-based access control middleware
+exports.requirePermission = (permissionKey) => {
+  return (req, res, next) => {
+    // Check if user is admin
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required'
+      });
+    }
+
+    // Check if user has the specific permission
+    if (!req.user.permissions || !req.user.permissions[permissionKey]) {
+      return res.status(403).json({
+        success: false,
+        message: `Permission denied: ${permissionKey} required`
+      });
+    }
+
+    next();
+  };
+};
