@@ -69,8 +69,16 @@ exports.requirePermission = (permissionKey) => {
       });
     }
 
+    // If no permissions object exists (old admins), grant access (backward compatibility)
+    // Otherwise check the specific permission
+    if (!req.user.permissions) {
+      // Old admin without permissions object - grant full access
+      next();
+      return;
+    }
+
     // Check if user has the specific permission
-    if (!req.user.permissions || !req.user.permissions[permissionKey]) {
+    if (!req.user.permissions[permissionKey]) {
       return res.status(403).json({
         success: false,
         message: `Permission denied: ${permissionKey} required`
