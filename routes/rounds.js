@@ -322,37 +322,32 @@ router.post('/', protect, adminOnly, async (req, res) => {
     }
 
     // Calculate deadline from house default time if not provided
-    // Interpret time in IST timezone (UTC+5:30) for absolute time
     let deadlineDate;
     let deadlineTimeStr = houseExists.deadlineTime; // ALWAYS use house deadline time
 
     if (deadline) {
+      // Frontend now sends complete UTC deadline - use it directly
       deadlineDate = new Date(deadline);
+      console.log(`🕐 Manual round creation - Frontend UTC deadline: ${deadlineDate.toISOString()}`);
     } else {
-      // Use house default time in IST timezone (UTC+5:30)
-      const roundDate = new Date(date);
+      // Fallback: Use IST conversion (for backward compatibility or direct API calls)
+      // Convert IST time (UTC+5:30) to UTC
       const [istHour, istMin] = houseExists.deadlineTime.split(':').map(Number);
+      const roundDate = new Date(date);
 
-      // Get UTC date components (date-only strings are parsed as UTC midnight)
       const year = roundDate.getUTCFullYear();
       const month = roundDate.getUTCMonth();
       const day = roundDate.getUTCDate();
 
-      // Convert IST time (UTC+5:30) to UTC
-      // IST = UTC + 5 hours 30 minutes
-      // To convert IST to UTC: subtract 5 hours 30 minutes
-      // Example: 18:00 IST = 12:30 UTC (18:00 - 5:30 = 12:30)
+      // Convert IST to UTC: subtract 5 hours 30 minutes
       const totalIstMinutes = istHour * 60 + istMin;
-      const totalUtcMinutes = totalIstMinutes - (5 * 60 + 30); // Subtract 5:30
+      const totalUtcMinutes = totalIstMinutes - (5 * 60 + 30);
 
-      // Convert back to hours and minutes (handle negative values)
       const utcHour = Math.floor(totalUtcMinutes / 60);
       const utcMin = totalUtcMinutes % 60;
 
-      // Create UTC date (Date.UTC handles day overflow/underflow automatically)
       deadlineDate = new Date(Date.UTC(year, month, day, utcHour, utcMin, 0, 0));
-
-      console.log(`🕐 Manual round creation - Timezone conversion: ${houseExists.deadlineTime} IST → ${deadlineDate.toISOString()} (UTC)`);
+      console.log(`🕐 Manual round creation - IST fallback: ${houseExists.deadlineTime} IST → ${deadlineDate.toISOString()} (UTC)`);
     }
 
     // Check if round already exists for this house and date
