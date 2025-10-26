@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendOTP, verifyOTP, resendOTP } = require('../utils/otpService');
+const User = require('../models/User');
 
 // Normalize phone number for international support
 // Keeps country code, removes spaces/dashes/parentheses, removes + sign for storage
@@ -46,6 +47,16 @@ router.post('/send', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Invalid phone number format'
+      });
+    }
+
+    // Check if user already exists BEFORE sending OTP
+    const existingUser = await User.findOne({ phone });
+    if (existingUser) {
+      console.log(`❌ Registration attempt for existing user: ${phone}`);
+      return res.status(400).json({
+        success: false,
+        message: 'This phone number is already registered. Please login instead.'
       });
     }
 
