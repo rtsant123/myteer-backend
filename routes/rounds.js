@@ -178,7 +178,7 @@ router.get('/active/:houseId', async (req, res) => {
 router.get('/history/:houseId', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = Math.min(parseInt(req.query.limit) || 100, 1000); // Default 100, max 1000
     const skip = (page - 1) * limit;
 
     // Find ALL FINISHED rounds for this house, sorted by date (newest first)
