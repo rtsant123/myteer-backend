@@ -42,7 +42,9 @@ const houseSchema = new mongoose.Schema({
     type: Number,
     default: 40
   },
-  // Single deadline time for all betting (FR, SR, Forecast) in IST
+  // Single deadline time for all betting (FR, SR, Forecast) in IST (India Standard Time, UTC+5:30)
+  // This time will be converted to UTC when storing deadlines in rounds
+  // Example: "18:00" IST will be stored as 12:30 UTC in the database
   deadlineTime: {
     type: String,
     required: true

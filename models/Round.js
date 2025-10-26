@@ -11,11 +11,12 @@ const roundSchema = new mongoose.Schema({
     required: true
   },
   // Single betting deadline for all game modes (calculated from house deadlineTime + date)
+  // STORED AS UTC - will be converted to user's local timezone on frontend
   deadline: {
     type: Date,
     required: true
   },
-  // Deadline time as string (HH:MM) - for client-side local timezone display
+  // Deadline time as string (HH:MM) in IST - for reference only
   deadlineTime: {
     type: String,
     required: true

@@ -3,9 +3,9 @@ const Round = require('../models/Round');
 const House = require('../models/House');
 
 // Helper to parse time string (HH:MM) and combine with date
-// Convert Bangkok time (UTC+7) to UTC for absolute time
+// Convert IST time (UTC+5:30) to UTC for absolute time
 function combineDateAndTime(dateStr, timeStr) {
-  const [bangkokHour, bangkokMin] = timeStr.split(':').map(Number);
+  const [istHour, istMin] = timeStr.split(':').map(Number);
   const date = new Date(dateStr);
 
   // Get UTC date components (date-only strings are parsed as UTC midnight)
@@ -13,12 +13,21 @@ function combineDateAndTime(dateStr, timeStr) {
   const month = date.getUTCMonth();
   const day = date.getUTCDate();
 
-  // Convert Bangkok time (UTC+7) to UTC
-  // If admin sets 15:30 Bangkok time, we need to store 08:30 UTC
-  const utcHour = bangkokHour - 7; // Bangkok is UTC+7
+  // Convert IST time (UTC+5:30) to UTC
+  // IST = UTC + 5 hours 30 minutes
+  // To convert IST to UTC: subtract 5 hours 30 minutes
+  // Example: 18:00 IST = 12:30 UTC (18:00 - 5:30 = 12:30)
+  const totalIstMinutes = istHour * 60 + istMin;
+  const totalUtcMinutes = totalIstMinutes - (5 * 60 + 30); // Subtract 5:30
 
-  // Create UTC date (handle hour overflow/underflow with Date constructor)
-  const deadline = new Date(Date.UTC(year, month, day, utcHour, bangkokMin, 0, 0));
+  // Convert back to hours and minutes (handle negative values)
+  const utcHour = Math.floor(totalUtcMinutes / 60);
+  const utcMin = totalUtcMinutes % 60;
+
+  // Create UTC date (Date.UTC handles day overflow/underflow automatically)
+  const deadline = new Date(Date.UTC(year, month, day, utcHour, utcMin, 0, 0));
+
+  console.log(`🕐 Timezone conversion: ${timeStr} IST → ${deadline.toISOString()} (UTC)`);
 
   return deadline;
 }
