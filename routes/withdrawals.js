@@ -78,25 +78,33 @@ router.post('/', protect, async (req, res) => {
     await user.save();
 
     // Create withdrawal request with balance already deducted
-    const withdrawal = await Withdrawal.create({
-      user: req.user._id,
-      amount,
-      paymentMethod: paymentMethodId,
-      paymentDetails: paymentDetails || {},
-      status: 'pending'
-    });
+    let withdrawal;
+    try {
+      withdrawal = await Withdrawal.create({
+        user: req.user._id,
+        amount,
+        paymentMethod: paymentMethodId,
+        paymentDetails: paymentDetails || {},
+        status: 'pending'
+      });
 
-    // Create pending withdrawal transaction
-    await Transaction.create({
-      user: user._id,
-      type: 'withdrawal_pending',
-      amount: -amount,
-      balanceBefore,
-      balanceAfter: user.balance,
-      description: `Withdrawal request pending (${paymentDetails?.upiId || paymentDetails?.accountNumber || 'N/A'})`,
-      relatedWithdrawal: withdrawal._id,
-      status: 'pending'
-    });
+      // Create pending withdrawal transaction
+      await Transaction.create({
+        user: user._id,
+        type: 'withdrawal_pending',
+        amount: -amount,
+        balanceBefore,
+        balanceAfter: user.balance,
+        description: `Withdrawal request pending (${paymentDetails?.upiId || paymentDetails?.accountNumber || 'N/A'})`,
+        relatedWithdrawal: withdrawal._id,
+        status: 'pending'
+      });
+    } catch (createError) {
+      // Rollback balance deduction if withdrawal or transaction creation fails
+      user.balance = balanceBefore;
+      await user.save();
+      throw createError; // Re-throw to be caught by outer catch
+    }
 
     const populatedWithdrawal = await Withdrawal.findById(withdrawal._id)
       .populate('user', 'name phone')
