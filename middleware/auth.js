@@ -69,16 +69,19 @@ exports.requirePermission = (permissionKey) => {
       });
     }
 
-    // If no permissions object exists (old admins), grant access (backward compatibility)
-    // Otherwise check the specific permission
-    if (!req.user.permissions) {
+    // If no role/permissions object exists (old admins), grant access (backward compatibility)
+    // Check both req.user.role and req.user.permissions for backward compatibility
+    if (!req.user.role && !req.user.permissions) {
       // Old admin without permissions object - grant full access
       next();
       return;
     }
 
-    // Check if user has the specific permission
-    if (!req.user.permissions[permissionKey]) {
+    // Check if user has the specific permission (check both role and permissions objects)
+    const hasPermission = (req.user.role && req.user.role[permissionKey]) ||
+                          (req.user.permissions && req.user.permissions[permissionKey]);
+
+    if (!hasPermission) {
       return res.status(403).json({
         success: false,
         message: `Permission denied: ${permissionKey} required`

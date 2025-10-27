@@ -23,12 +23,25 @@ async function fixAdminAccess() {
       console.log('⚠️  User 8971128147 not found');
     }
 
-    // Ensure 9999999999 is admin
+    // Ensure 9999999999 is admin with full permissions
     const admin = await User.findOne({ phone: { $in: ['9999999999', '919999999999'] } });
     if (admin) {
       admin.isAdmin = true;
+
+      // Grant all admin permissions including analytics
+      if (!admin.role) {
+        admin.role = {};
+      }
+      admin.role.canManageUsers = true;
+      admin.role.canManageHouses = true;
+      admin.role.canManageRounds = true;
+      admin.role.canManagePayments = true;
+      admin.role.canAccessAnalytics = true;
+      admin.role.canManageSettings = true;
+
       await admin.save();
       console.log(`✅ Confirmed admin access for ${admin.phone} (${admin.name || 'Admin'})`);
+      console.log(`   ✅ Analytics permission granted`);
     } else {
       console.log('⚠️  Admin user 9999999999 not found');
     }
