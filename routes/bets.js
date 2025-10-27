@@ -54,33 +54,33 @@ router.post('/place', protect, async (req, res) => {
     // Validate entries and check timing
     for (const entry of entries) {
       if (entry.mode === 'FR' || entry.mode === 'FORECAST') {
-        // FR/FORECAST allowed if status is pending or live, and before FR deadline
-        if (!['pending', 'live'].includes(round.status)) {
+        // FR/FORECAST allowed if status is pending, and before deadline
+        if (!['pending'].includes(round.status)) {
           return res.status(400).json({
             success: false,
             message: 'First round betting is closed'
           });
         }
-        if (now >= round.frDeadline) {
+        if (now >= round.deadline) {
           return res.status(400).json({
             success: false,
-            message: 'First round betting time has expired'
+            message: 'Betting time has expired'
           });
         }
       }
 
       if (entry.mode === 'SR') {
-        // SR allowed if status is pending, live, or fr_closed, and before SR deadline
-        if (!['pending', 'live', 'fr_closed'].includes(round.status)) {
+        // SR allowed if status is pending, and before deadline
+        if (!['pending'].includes(round.status)) {
           return res.status(400).json({
             success: false,
             message: 'Second round betting is closed'
           });
         }
-        if (now >= round.srDeadline) {
+        if (now >= round.deadline) {
           return res.status(400).json({
             success: false,
-            message: 'Second round betting time has expired'
+            message: 'Betting time has expired'
           });
         }
       }
