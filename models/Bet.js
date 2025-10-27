@@ -82,4 +82,11 @@ const betSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Indexes for performance
+betSchema.index({ user: 1, createdAt: -1 }); // Fast user bet history queries
+betSchema.index({ round: 1, house: 1 }); // Fast round + house queries
+betSchema.index({ status: 1 }); // Fast status filtering
+betSchema.index({ createdAt: -1 }); // Fast recent bets queries
+betSchema.index({ house: 1 }); // Fast house-specific queries
+
 module.exports = mongoose.model('Bet', betSchema);

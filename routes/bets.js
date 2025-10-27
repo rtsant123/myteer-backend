@@ -22,6 +22,14 @@ router.post('/place', protect, async (req, res) => {
       });
     }
 
+    // Validate number of entries (prevent betting on too many numbers)
+    if (entries.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum 100 numbers allowed per bet'
+      });
+    }
+
     // Check if house exists
     const house = await House.findById(houseId);
     if (!house || !house.isActive) {
@@ -85,11 +93,33 @@ router.post('/place', protect, async (req, res) => {
         });
       }
 
-      // Validate amount
-      if (entry.amount <= 0) {
+      // Validate amount with min/max limits
+      if (typeof entry.amount !== 'number' || isNaN(entry.amount)) {
         return res.status(400).json({
           success: false,
-          message: 'Bet amount must be greater than 0'
+          message: 'Bet amount must be a valid number'
+        });
+      }
+
+      if (entry.amount < 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Minimum bet amount is ₹10'
+        });
+      }
+
+      if (entry.amount > 100000) {
+        return res.status(400).json({
+          success: false,
+          message: 'Maximum bet amount is ₹1,00,000'
+        });
+      }
+
+      // Ensure amount has max 2 decimal places
+      if (!Number.isInteger(entry.amount * 100)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bet amount can have maximum 2 decimal places'
         });
       }
 

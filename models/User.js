@@ -96,4 +96,11 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// Indexes for performance (applied automatically by Mongoose)
+userSchema.index({ phone: 1 }, { unique: true }); // Unique index on phone
+userSchema.index({ isAdmin: 1 }); // Fast admin lookups
+userSchema.index({ createdAt: -1 }); // Fast queries by registration date
+userSchema.index({ balance: -1 }); // Fast queries by balance (for leaderboards)
+userSchema.index({ referredBy: 1 }); // Fast referral queries
+
 module.exports = mongoose.model('User', userSchema);
