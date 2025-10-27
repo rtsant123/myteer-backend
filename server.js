@@ -2,15 +2,101 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
+// =============================================================================
+// ENVIRONMENT VARIABLE VALIDATION (CRITICAL SECURITY)
+// =============================================================================
+const requiredEnvVars = [
+  'MONGO_URI',
+  'JWT_SECRET'
+];
+
+const missing = requiredEnvVars.filter(envVar => !process.env[envVar]);
+if (missing.length > 0) {
+  console.error(`❌ FATAL: Missing required environment variables: ${missing.join(', ')}`);
+  console.error('⚠️  Set these in Railway/Heroku environment variables before deploying!');
+  process.exit(1);
+}
+
+// Warn about optional but recommended vars
+const recommendedVars = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'];
+const missingRecommended = recommendedVars.filter(envVar => !process.env[envVar]);
+if (missingRecommended.length > 0) {
+  console.warn(`⚠️  WARNING: Missing optional environment variables: ${missingRecommended.join(', ')}`);
+  console.warn('   OTP functionality will not work without Twilio credentials.');
+}
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// =============================================================================
+// SECURITY MIDDLEWARE (CRITICAL)
+// =============================================================================
 
-// Auto-update round statuses on every request (middleware)
+// 1. Helmet - Security headers (XSS, clickjacking, MIME sniffing protection)
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable if using inline scripts
+  crossOriginEmbedderPolicy: false
+}));
+
+// 2. CORS - Restrict which domains can access your API
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = process.env.NODE_ENV === 'production'
+      ? [
+          'https://myteer-backend-production.up.railway.app', // Your backend domain
+          // Add your frontend domain here when you have one:
+          // 'https://yourdomain.com'
+        ]
+      : ['http://localhost:3000', 'http://localhost:8080'];
+
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
+// 3. Request size limits - Prevent memory exhaustion attacks
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 4. Rate Limiting - Prevent brute force and API abuse
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per IP per 15 mins
+  message: { success: false, message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Only 5 login/register attempts per 15 mins
+  message: { success: false, message: 'Too many authentication attempts, try again in 15 minutes' },
+  skipSuccessfulRequests: true, // Don't count successful logins
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 2, // Only 2 OTP requests per minute (prevents SMS spam - costs money!)
+  message: { success: false, message: 'Too many OTP requests, please wait a minute' },
+});
+
+// Apply general rate limiter to all API routes
+app.use('/api/', generalLimiter);
+
+// =============================================================================
+// AUTO-UPDATE ROUND STATUSES MIDDLEWARE
+// =============================================================================
 let lastStatusUpdate = 0;
 app.use(async (req, res, next) => {
   const now = Date.now();
@@ -23,11 +109,14 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/myteer';
+// =============================================================================
+// MONGODB CONNECTION
+// =============================================================================
+const MONGO_URI = process.env.MONGO_URI;
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000 // Fail fast if can't connect
 })
 .then(() => {
   console.log('✅ MongoDB Connected');
@@ -36,9 +125,19 @@ mongoose.connect(MONGO_URI, {
   const { initScheduler } = require('./services/roundScheduler');
   initScheduler();
 })
-.catch(err => console.error('❌ MongoDB Connection Error:', err));
+.catch(err => {
+  console.error('❌ MongoDB Connection Error:', err);
+  console.error('   Make sure MONGO_URI is set correctly in environment variables');
+  process.exit(1); // Don't run server if DB is down
+});
 
-// Routes
+// =============================================================================
+// ROUTES WITH RATE LIMITING
+// =============================================================================
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/otp', otpLimiter);
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/houses', require('./routes/houses'));
 app.use('/api/rounds', require('./routes/rounds'));
@@ -48,7 +147,6 @@ app.use('/api/payment-methods', require('./routes/paymentMethods'));
 app.use('/api/deposits', require('./routes/deposits'));
 app.use('/api/withdrawals', require('./routes/withdrawals'));
 app.use('/api/banners', require('./routes/banners'));
-app.use('/api/otp', require('./routes/otp'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
@@ -57,13 +155,34 @@ app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/leaderboard', require('./routes/leaderboard'));
 app.use('/api/app-version', require('./routes/appVersion'));
 
-// Health Check
+// =============================================================================
+// HEALTH CHECK & ROOT ENDPOINT
+// =============================================================================
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Myteer API is running' });
+  res.json({
+    status: 'ok',
+    message: 'Myteer API is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
-// Manual trigger for round status updates
-app.post('/api/update-round-statuses', async (req, res) => {
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Myteer Betting API',
+    version: '1.0.3',
+    status: 'online',
+    documentation: '/api/health'
+  });
+});
+
+// =============================================================================
+// ADMIN-ONLY UTILITY ENDPOINTS (PROTECTED)
+// =============================================================================
+const { protect, adminOnly } = require('./middleware/auth');
+
+// Manual trigger for round status updates (admin only)
+app.post('/api/admin/update-statuses', protect, adminOnly, async (req, res) => {
   try {
     const { updateRoundStatuses } = require('./services/roundScheduler');
     await updateRoundStatuses();
@@ -74,43 +193,8 @@ app.post('/api/update-round-statuses', async (req, res) => {
   }
 });
 
-// Debug endpoint - show all rounds with their statuses
-app.get('/api/debug/rounds', async (req, res) => {
-  try {
-    const Round = require('./models/Round');
-    const rounds = await Round.find({}).populate('house').sort({ date: -1 }).limit(20);
-
-    const now = new Date();
-    const roundsData = rounds.map(round => ({
-      id: round._id,
-      houseName: round.house ? round.house.name : `House ID: ${round.house}`,
-      date: round.date,
-      frDeadline: round.frDeadline,
-      srDeadline: round.srDeadline,
-      frStatus: round.frStatus,
-      srStatus: round.srStatus,
-      forecastStatus: round.forecastStatus,
-      status: round.status,
-      frResult: round.frResult,
-      srResult: round.srResult,
-      currentTime: now,
-      frDeadlinePassed: now >= round.frDeadline,
-      srDeadlinePassed: now >= round.srDeadline
-    }));
-
-    res.json({
-      success: true,
-      currentTime: now,
-      rounds: roundsData
-    });
-  } catch (error) {
-    console.error('❌ Debug error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Verification Endpoint - Check migration status
-app.get('/api/verify-migration', async (req, res) => {
+// Verification endpoint - Check migration status (admin only)
+app.get('/api/admin/verify-migration', protect, adminOnly, async (req, res) => {
   try {
     const House = require('./models/House');
     const Round = require('./models/Round');
@@ -178,122 +262,30 @@ app.get('/api/verify-migration', async (req, res) => {
   }
 });
 
-// Migration Endpoint (temporary - remove after running)
-app.post('/api/run-migration', async (req, res) => {
-  try {
-    const House = require('./models/House');
-    const Round = require('./models/Round');
-
-    console.log('🔄 Starting migration...');
-
-    // Migration 1: Add operatingDays to houses (using direct DB query)
-    const housesResult = await House.updateMany(
-      { operatingDays: { $exists: false } },
-      { $set: { operatingDays: [1, 2, 3, 4, 5, 6] } }
-    );
-    const housesUpdated = housesResult.modifiedCount;
-
-    // Migration 2: Add game mode statuses to rounds
-    const rounds = await Round.find({
-      $or: [
-        { frStatus: { $exists: false } },
-        { srStatus: { $exists: false } },
-        { forecastStatus: { $exists: false } }
-      ]
-    }).lean();
-
-    let roundsUpdated = 0;
-    const now = new Date();
-
-    for (const round of rounds) {
-      const update = {};
-
-      // Calculate frStatus if missing
-      if (!round.frStatus) {
-        if (round.frResult !== undefined && round.frResult !== null) {
-          update.frStatus = 'finished';
-        } else if (now >= new Date(round.frDeadline)) {
-          update.frStatus = 'live';
-        } else {
-          update.frStatus = 'pending';
-        }
-      }
-
-      // Calculate srStatus if missing
-      if (!round.srStatus) {
-        if (round.srResult !== undefined && round.srResult !== null) {
-          update.srStatus = 'finished';
-        } else if (now >= new Date(round.srDeadline)) {
-          update.srStatus = 'live';
-        } else {
-          update.srStatus = 'pending';
-        }
-      }
-
-      // Calculate forecastStatus if missing
-      if (!round.forecastStatus) {
-        if (round.frResult !== undefined && round.frResult !== null &&
-            round.srResult !== undefined && round.srResult !== null) {
-          update.forecastStatus = 'finished';
-        } else if (now >= new Date(round.frDeadline)) {
-          update.forecastStatus = 'live';
-        } else {
-          update.forecastStatus = 'pending';
-        }
-      }
-
-      if (Object.keys(update).length > 0) {
-        await Round.updateOne({ _id: round._id }, { $set: update });
-        roundsUpdated++;
-      }
-    }
-
-    res.json({
-      success: true,
-      message: 'Migration completed successfully!',
-      housesUpdated,
-      roundsUpdated
-    });
-
-  } catch (error) {
-    console.error('❌ Migration error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Migration failed',
-      error: error.message
-    });
-  }
-});
-
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Myteer Betting API',
-    version: '1.0.0',
-    endpoints: [
-      '/api/auth/login',
-      '/api/auth/register',
-      '/api/houses',
-      '/api/rounds',
-      '/api/bets',
-      '/api/wallet',
-      '/api/health'
-    ]
-  });
-});
-
-// Error Handler
+// =============================================================================
+// ERROR HANDLER (MUST BE LAST)
+// =============================================================================
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  console.error('Error:', err.stack);
+
+  // Don't leak error details in production
+  const errorMessage = process.env.NODE_ENV === 'production'
+    ? 'Internal server error'
+    : err.message;
+
+  res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Server Error'
+    message: errorMessage
   });
 });
 
-// Start Server
+// =============================================================================
+// START SERVER
+// =============================================================================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 API URL: http://localhost:${PORT}/api`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔒 Security: Helmet enabled, CORS restricted, Rate limiting active`);
+  console.log(`📊 API Health Check: http://localhost:${PORT}/api/health`);
 });

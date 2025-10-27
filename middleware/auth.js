@@ -1,7 +1,14 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_change_this';
+// CRITICAL SECURITY: JWT_SECRET must be set in environment variables
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ FATAL ERROR: JWT_SECRET environment variable is not set!');
+  console.error('   This is a critical security issue. Set JWT_SECRET in Railway/Heroku environment variables.');
+  console.error('   Generate one with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
+  process.exit(1);
+}
 
 exports.protect = async (req, res, next) => {
   try {
