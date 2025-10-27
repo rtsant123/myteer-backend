@@ -211,8 +211,8 @@ router.get('/stats', protect, adminOnly, async (req, res) => {
 
 // @route   GET /api/admin/analytics
 // @desc    Get comprehensive admin analytics
-// @access  Private/Admin (requires canAccessAnalytics permission)
-router.get('/analytics', protect, requirePermission('canAccessAnalytics'), async (req, res) => {
+// @access  Private/Admin
+router.get('/analytics', protect, adminOnly, async (req, res) => {
   try {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
