@@ -103,9 +103,6 @@ const authLimiter = rateLimit({
   }
 });
 
-// Apply general rate limiter to all API routes (but skips registration/OTP)
-app.use('/api/', generalLimiter);
-
 // =============================================================================
 // AUTO-UPDATE ROUND STATUSES MIDDLEWARE
 // =============================================================================
@@ -144,12 +141,17 @@ mongoose.connect(MONGO_URI, {
 });
 
 // =============================================================================
-// ROUTES WITH RATE LIMITING
+// APPLY RATE LIMITERS (Before routes!)
 // =============================================================================
+// Apply login limiter only to login endpoint
 app.use('/api/auth/login', authLimiter);
-// Auth limiter removed from registration - users need flexibility to retry
-// OTP limiter removed - registration needs flexibility
 
+// Apply general limiter to MOST routes (registration/OTP will bypass via skip function)
+app.use('/api/', generalLimiter);
+
+// =============================================================================
+// ROUTES
+// =============================================================================
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/houses', require('./routes/houses'));
 app.use('/api/rounds', require('./routes/rounds'));
