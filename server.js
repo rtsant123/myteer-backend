@@ -76,6 +76,11 @@ const generalLimiter = rateLimit({
   message: { success: false, message: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip registration and OTP endpoints from general rate limiting
+  skip: (req) => {
+    const path = req.path;
+    return path.includes('/auth/register') || path.includes('/otp');
+  }
 });
 
 const authLimiter = rateLimit({
@@ -85,10 +90,7 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true, // Don't count successful logins
 });
 
-// OTP Rate Limiter removed - Users need flexibility during registration
-// General rate limiter (100 req/15min) still applies to prevent abuse
-
-// Apply general rate limiter to all API routes
+// Apply general rate limiter to all API routes (but skips registration/OTP)
 app.use('/api/', generalLimiter);
 
 // =============================================================================
