@@ -153,6 +153,7 @@ app.use('/api/', generalLimiter);
 // ROUTES
 // =============================================================================
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/otp', require('./routes/otp')); // OTP routes (send, verify, resend)
 app.use('/api/houses', require('./routes/houses'));
 app.use('/api/rounds', require('./routes/rounds'));
 app.use('/api/bets', require('./routes/bets'));
