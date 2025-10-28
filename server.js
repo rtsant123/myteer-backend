@@ -70,24 +70,37 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 4. Rate Limiting - Prevent brute force and API abuse
+// IMPORTANT: Custom handler to ALWAYS return JSON (not HTML!)
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 requests per IP per 15 mins
-  message: { success: false, message: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
   // Skip registration and OTP endpoints from general rate limiting
   skip: (req) => {
     const path = req.path;
     return path.includes('/auth/register') || path.includes('/otp');
+  },
+  // Force JSON response (prevents HTML error)
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many requests, please try again later'
+    });
   }
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Only 5 login/register attempts per 15 mins
-  message: { success: false, message: 'Too many authentication attempts, try again in 15 minutes' },
+  max: 5, // Only 5 login attempts per 15 mins
   skipSuccessfulRequests: true, // Don't count successful logins
+  // Force JSON response (prevents HTML error)
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many authentication attempts, try again in 15 minutes'
+    });
+  }
 });
 
 // Apply general rate limiter to all API routes (but skips registration/OTP)
