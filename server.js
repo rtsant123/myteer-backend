@@ -277,6 +277,16 @@ app.get('/api/admin/verify-migration', protect, adminOnly, async (req, res) => {
 });
 
 // =============================================================================
+// 404 HANDLER - Return JSON for all unmatched routes (NOT HTML!)
+// =============================================================================
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    message: `Endpoint not found: ${req.method} ${req.path}`
+  });
+});
+
+// =============================================================================
 // ERROR HANDLER (MUST BE LAST)
 // =============================================================================
 app.use((err, req, res, next) => {
