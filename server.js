@@ -85,11 +85,8 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true, // Don't count successful logins
 });
 
-const otpLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 2, // Only 2 OTP requests per minute (prevents SMS spam - costs money!)
-  message: { success: false, message: 'Too many OTP requests, please wait a minute' },
-});
+// OTP Rate Limiter removed - Users need flexibility during registration
+// General rate limiter (100 req/15min) still applies to prevent abuse
 
 // Apply general rate limiter to all API routes
 app.use('/api/', generalLimiter);
@@ -136,7 +133,7 @@ mongoose.connect(MONGO_URI, {
 // =============================================================================
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
-app.use('/api/otp', otpLimiter);
+// OTP limiter removed - registration needs flexibility
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/houses', require('./routes/houses'));
