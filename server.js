@@ -132,7 +132,7 @@ mongoose.connect(MONGO_URI, {
 // ROUTES WITH RATE LIMITING
 // =============================================================================
 app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
+// Auth limiter removed from registration - users need flexibility to retry
 // OTP limiter removed - registration needs flexibility
 
 app.use('/api/auth', require('./routes/auth'));
