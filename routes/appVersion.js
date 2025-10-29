@@ -18,7 +18,8 @@ router.get('/check', async (req, res) => {
     // Get latest version info from settings
     const latestVersion = await Settings.get('app_version_latest', '1.0.2');
     const updateMessage = await Settings.get('app_version_message', 'A new version is available!');
-    const isMandatory = await Settings.get('app_version_mandatory', false);
+    // TEMPORARY FIX: Force mandatory update OFF to allow users to login
+    const isMandatory = false; // await Settings.get('app_version_mandatory', false);
     const downloadUrl = await Settings.get('app_version_download_url', '');
 
     // Compare versions
