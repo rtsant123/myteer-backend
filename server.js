@@ -314,3 +314,4 @@ app.listen(PORT, () => {
   console.log(`🔒 Security: Helmet enabled, CORS restricted, Rate limiting active`);
   console.log(`📊 API Health Check: http://localhost:${PORT}/api/health`);
 });
+// Trigger Railway redeploy
