@@ -191,6 +191,34 @@ app.get('/', (req, res) => {
   });
 });
 
+// Quick admin creation endpoint (temporary - remove after first use)
+app.post('/api/quick-create-admin', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const adminPhone = '919999999999';
+    const adminPassword = 'admin123';
+
+    const existingAdmin = await User.findOne({ phone: adminPhone });
+    if (existingAdmin) {
+      existingAdmin.isAdmin = true;
+      await existingAdmin.save();
+      return res.json({ success: true, message: 'Existing user upgraded to admin', phone: adminPhone });
+    }
+
+    const admin = await User.create({
+      phone: adminPhone,
+      password: adminPassword,
+      name: 'Admin User',
+      isAdmin: true,
+      balance: 10000
+    });
+
+    res.json({ success: true, message: 'Admin created successfully', phone: adminPhone, password: adminPassword });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // =============================================================================
 // ADMIN-ONLY UTILITY ENDPOINTS (PROTECTED)
 // =============================================================================
