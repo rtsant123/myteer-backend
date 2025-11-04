@@ -191,55 +191,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// Quick admin creation endpoint (temporary - remove after first use)
-app.post('/api/quick-create-admin', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    const adminPhone = '919999999999';
-    const adminPassword = 'admin123';
-
-    const existingAdmin = await User.findOne({ phone: adminPhone });
-    if (existingAdmin) {
-      existingAdmin.isAdmin = true;
-      await existingAdmin.save();
-      return res.json({ success: true, message: 'Existing user upgraded to admin', phone: adminPhone });
-    }
-
-    const admin = await User.create({
-      phone: adminPhone,
-      password: adminPassword,
-      name: 'Admin User',
-      isAdmin: true,
-      balance: 10000
-    });
-
-    res.json({ success: true, message: 'Admin created successfully', phone: adminPhone, password: adminPassword });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Check all users endpoint (temporary - for debugging)
-app.get('/api/check-users', async (req, res) => {
-  try {
-    const User = require('./models/User');
-    const users = await User.find({}).select('phone name isAdmin balance createdAt').sort({ createdAt: -1 });
-    res.json({
-      success: true,
-      totalUsers: users.length,
-      users: users.map(u => ({
-        phone: u.phone,
-        name: u.name,
-        isAdmin: u.isAdmin,
-        balance: u.balance,
-        createdAt: u.createdAt
-      }))
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
 // =============================================================================
 // ADMIN-ONLY UTILITY ENDPOINTS (PROTECTED)
 // =============================================================================
