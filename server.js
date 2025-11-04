@@ -219,6 +219,27 @@ app.post('/api/quick-create-admin', async (req, res) => {
   }
 });
 
+// Check all users endpoint (temporary - for debugging)
+app.get('/api/check-users', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const users = await User.find({}).select('phone name isAdmin balance createdAt').sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      totalUsers: users.length,
+      users: users.map(u => ({
+        phone: u.phone,
+        name: u.name,
+        isAdmin: u.isAdmin,
+        balance: u.balance,
+        createdAt: u.createdAt
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // =============================================================================
 // ADMIN-ONLY UTILITY ENDPOINTS (PROTECTED)
 // =============================================================================
